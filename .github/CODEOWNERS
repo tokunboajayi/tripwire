@@ -1,10 +1,10 @@
-# AJ reviews everything; seat owners are added once GitHub handles are known.
+# AJ (owner) reviews everything; seat owners review their folders.
 *              @tokunboajayi
 /engine/       @tokunboajayi
 /deploy/       @tokunboajayi
-/data/         @tokunboajayi @DATA_GITHUB
-/backtest/     @tokunboajayi @DATA_GITHUB
-/agents/       @tokunboajayi @MCP_GITHUB
-/mcp/          @tokunboajayi @MCP_GITHUB
-/web/          @tokunboajayi @PRODUCT_GITHUB
-/landing/      @tokunboajayi @PRODUCT_GITHUB
+/data/         @tokunboajayi @Bawoh1
+/backtest/     @tokunboajayi @Bawoh1
+/agents/       @tokunboajayi @ubaniebereo
+/mcp/          @tokunboajayi @ubaniebereo
+/web/          @tokunboajayi @kellyawoh-jpg
+/landing/      @tokunboajayi @kellyawoh-jpg

@@ -47,8 +47,8 @@ docker compose -f deploy/docker-compose.yml up
 | Name | Seat | GitHub |
 |---|---|---|
 | AJ (Olatokunbo Ajayi) | Owner · Engine | @tokunboajayi |
-| TODO | B · Data & Strategy | @TODO |
-| TODO | C · AI & MCP | @TODO |
-| TODO | D · Product | @TODO |
+| Bryant Awoh | B · Data & Strategy | @Bawoh1 |
+| Ebere | C · AI & MCP | @ubaniebereo |
+| Kelly Awoh | D · Product | @kellyawoh-jpg |
 
 Paper trading only. Not financial advice.

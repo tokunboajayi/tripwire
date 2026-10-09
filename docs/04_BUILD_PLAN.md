@@ -3,11 +3,10 @@
 ## Team & seats (Hacklanta max = 4)
 | Seat | Person | Owns | Folders |
 |---|---|---|---|
-| **Owner · Integrator + Engine** | AJ (this computer) | repo admin, merges every PR, releases, deploy, Rust engine | `engine/`, `deploy/`, root files |
-| **B · Data & Strategy** | data teammate | market data pipeline, backtest, Rust↔Python parity fixtures, replay datasets (crypto + stocks), Tiger Data (opt) | `data/`, `backtest/` |
-| **C · AI & MCP** | MCP teammate | **MCP server ("talk to your portfolio")**, Regime + Thesis agents, prompts, reasoning stream, digest | `mcp/`, `agents/` |
-| **D · Product** | 4th teammate (if any) | React dashboard, onboarding, Auth0, landing page, deck | `web/`, `landing/` |
-No 4th person → AJ takes `landing/`, C takes `web/` after MCP ships.
+| **Owner · Integrator + Engine** | AJ @tokunboajayi (head of uploads) | repo admin, merges every PR, releases, deploy, Rust engine | `engine/`, `deploy/`, root files |
+| **B · Data & Strategy** | Bryant @Bawoh1 | market data pipeline, backtest, Rust↔Python parity fixtures, replay datasets (crypto + stocks), Tiger Data (opt) | `data/`, `backtest/` |
+| **C · AI & MCP** | Ebere @ubaniebereo | **MCP server ("talk to your portfolio")**, Regime + Thesis agents, prompts, reasoning stream, digest | `mcp/`, `agents/` |
+| **D · Product** | Kelly @kellyawoh-jpg | React dashboard, onboarding, Auth0, landing page, deck | `web/`, `landing/` |
 
 Interfaces are fixed in `03_BUILD_SPEC.md §9`. Agree at H0, then build in parallel against mocks.
 
