@@ -1,0 +1,25 @@
+.env
+.env.*
+!.env.example
+# rust
+engine/target/
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+agents/.cache/
+# node
+node_modules/
+web/dist/
+# data
+data/raw/
+*.parquet
+*.db
+*.db-*
+# os / editors
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
