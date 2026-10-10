@@ -247,7 +247,9 @@ async fn stream(State(app): State<S>, Query(q): Query<Tok>) -> Result<Sse<impl f
 }
 async fn kill_all(State(app): State<S>, h: HeaderMap) -> R {
     let u = writer(&app, &h).await?;
-    if !app.cfg.dev && app.cfg.owner.as_deref() != Some(u.as_str()) { return Err(err(StatusCode::FORBIDDEN, "owner only")) }
+    // owner-only whenever OWNER_USER is set (also in DEV, so a public demo box can't be killed by visitors)
+    let allowed = match app.cfg.owner.as_deref() { Some(o) if !o.is_empty() => o == u.as_str(), _ => app.cfg.dev };
+    if !allowed { return Err(err(StatusCode::FORBIDDEN, "owner only")) }
     let mut w = app.w.lock().unwrap(); w.kill = !w.kill; let k = w.kill;
     w.emit(None, "kill", if k { "GLOBAL KILL SWITCH ON: all new orders blocked.".into() } else { "Global kill switch off.".into() }, json!({"on": k}));
     ok(json!({"kill": k}))
