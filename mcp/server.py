@@ -1,10 +1,10 @@
 """Tripwire MCP server: 'talk to your portfolio' from Claude. Read-only by design (no order tools).
-Env: TRIPWIRE_API (default http://localhost:8080), TRIPWIRE_MCP_TOKEN (from the dashboard Settings)."""
+Env: TRIPWIRE_API (default http://127.0.0.1:8080), TRIPWIRE_MCP_TOKEN (from the dashboard Settings)."""
 import envload  # noqa: F401  (loads ../.env)
 import os, httpx
 from mcp.server.fastmcp import FastMCP
 
-API = os.getenv("TRIPWIRE_API", "http://localhost:8080")
+API = os.getenv("TRIPWIRE_API", "http://127.0.0.1:8080")
 mcp = FastMCP("tripwire")
 def get(path: str):
     r = httpx.get(API + path, headers={"x-mcp-token": os.getenv("TRIPWIRE_MCP_TOKEN", "")}, timeout=15); r.raise_for_status(); return r.json()

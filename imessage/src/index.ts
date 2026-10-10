@@ -12,7 +12,7 @@ for (const f of ["../.env", ".env"]) if (existsSync(f)) for (const line of readF
   process.env[m[1]] = m[2].replace(/\s+#.*$/, "").replace(/^["']|["']$/g, "");
 }
 const env = (k: string, d = "") => process.env[k] || d;
-const API = env("TRIPWIRE_API", "http://localhost:8080"), TOKEN = env("INTERNAL_TOKEN", "change-me");
+const API = env("TRIPWIRE_API", "http://127.0.0.1:8080"), TOKEN = env("INTERNAL_TOKEN", "change-me");
 const POLL_MS = Number(env("IMESSAGE_POLL_S", "20")) * 1000;
 const cloud = !!(env("PHOTON_PROJECT_ID") && env("PHOTON_PROJECT_SECRET"));
 

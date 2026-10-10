@@ -57,4 +57,4 @@ def anchor_round(api: str, headers: dict):
 if __name__ == "__main__":
     import envload  # noqa: F401
     print("anchor wallet:", keypair().pubkey())
-    anchor_round(os.getenv("TRIPWIRE_API", "http://localhost:8080"), {"x-internal-token": os.getenv("INTERNAL_TOKEN", "change-me")})
+    anchor_round(os.getenv("TRIPWIRE_API", "http://127.0.0.1:8080"), {"x-internal-token": os.getenv("INTERNAL_TOKEN", "change-me")})
