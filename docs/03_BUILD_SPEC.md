@@ -5,7 +5,8 @@
 > - Storage: in-memory state saved to `DATA_DIR/state.json` every minute instead of SQLite.
 > - Each account is split into equal per-coin sleeves (matches the backtest exactly).
 > - Confidence sizing uses the accepted Regime Agent confidence (0.5–1.0), not the thesis.
-> - Alpaca paper mirror and stock replay are not built yet (cut-list items 3–4).
+> - Alpaca paper mirror: set `MIRROR_USER`; that account's orders also go to Alpaca paper (results show in the why-log). Stock replay reads `data/stocks.json` from `data/fetch_stocks.py`.
+> - Voice: `GET /v1/voice` proxies ElevenLabs so the key stays on the server.
 > - Live signals are evaluated every 60s on the current (still-forming) daily candle; stops use the live price.
 
 ## 1. Stack

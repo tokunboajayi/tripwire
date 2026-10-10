@@ -13,7 +13,7 @@ export async function api<T = any>(path: string, method = "GET", body?: any): Pr
 }
 export function stream(onEvent: (kind: string, ev: any) => void) {
   const es = new EventSource(`/v1/stream?token=${encodeURIComponent(token)}`);
-  for (const k of ["order", "gate_block", "regime", "ai_regime", "thesis", "limits", "status", "auto_pause", "digest", "kill", "account", "reasoning", "replay_tick", "replay_order", "replay_done"])
+  for (const k of ["order", "gate_block", "regime", "ai_regime", "thesis", "limits", "status", "auto_pause", "digest", "kill", "account", "reasoning", "replay_tick", "replay_order", "replay_done", "mirror"])
     es.addEventListener(k, (e: MessageEvent) => onEvent(k, JSON.parse(e.data)));
   return () => es.close();
 }
@@ -24,3 +24,11 @@ export const PROFILES = {
 };
 export const REGIME_COLOR: Record<string, string> = { RANGE: "#4c8bf5", TREND_UP: "#2bb673", HIGH_VOL: "#f29d38", TREND_DOWN: "#8a8f98" };
 export const usd = (n: number) => (n < 0 ? "-$" : "$") + Math.abs(n).toLocaleString(undefined, { maximumFractionDigits: 2, minimumFractionDigits: 2 });
+
+let voiceOn = false;
+export const setVoice = (on: boolean) => (voiceOn = on);
+/** Speak an alert through the engine's ElevenLabs proxy (key stays server-side). */
+export function speak(text: string) {
+  if (!voiceOn || !text) return;
+  new Audio(`/v1/voice?token=${encodeURIComponent(token)}&text=${encodeURIComponent(text)}`).play().catch(() => {});
+}

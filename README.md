@@ -45,6 +45,7 @@ cd ../engine && DEV=1 DATA_DIR=../data cargo run --release   # http://localhost:
 # AI agents: cd agents && pip install -r requirements.txt && python worker.py   (no key = rule-based mode; ANTHROPIC_API_KEY in .env = Claude)
 # optional: MCP for Claude Desktop               cd mcp && pip install -r requirements.txt  (config on the "Talk to Claude" tab)
 ```
+Stock replay data (needs Alpaca keys): `python data/fetch_stocks.py`.
 Tests: `cd engine && cargo test` (risk-gate codes, tighten-only limits, AI override, **Rust-vs-Python parity** on 1,700 days of BTC).
 Deploy: `docker compose -f deploy/docker-compose.yml up -d --build`.
 

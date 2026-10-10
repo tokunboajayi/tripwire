@@ -19,6 +19,7 @@ pub struct Inds {
     pub rv: Vec<f64>, pub atrp_rank: Vec<f64>,
 }
 #[derive(Clone, Copy, Debug, Default)]
+#[allow(dead_code)]
 pub struct Row { pub atr: f64, pub ema50: f64, pub ema200: f64, pub sma200: f64, pub sma5: f64, pub adx: f64,
     pub rsi2: f64, pub dch10: f64, pub dch20: f64, pub vol20: f64, pub rv: f64, pub atrp_rank: f64 }
 impl Inds {
@@ -52,7 +53,8 @@ fn prev_max(x: &[f64], w: usize) -> Vec<f64> {
     (0..x.len()).map(|i| if i >= w { x[i - w..i].iter().cloned().fold(f64::MIN, f64::max) } else { NAN }).collect()
 }
 
-pub fn compute(cs: &[Candle]) -> Inds {
+pub fn compute(cs: &[Candle]) -> Inds { compute_ann(cs, 365.) }
+pub fn compute_ann(cs: &[Candle], periods: f64) -> Inds {
     let n = cs.len();
     let (c, h, l, v): (Vec<f64>, Vec<f64>, Vec<f64>, Vec<f64>) =
         (cs.iter().map(|k| k.c).collect(), cs.iter().map(|k| k.h).collect(), cs.iter().map(|k| k.l).collect(), cs.iter().map(|k| k.v).collect());
@@ -72,7 +74,7 @@ pub fn compute(cs: &[Candle]) -> Inds {
     Inds {
         ema50: ewm(&c, 2. / 51.), ema200: ewm(&c, 2. / 201.), sma200: roll(&c, 200, 200, mean), sma5: roll(&c, 5, 5, mean),
         adx: ewm(&dx, 1. / 14.), rsi2, dch10: prev_max(&h, 10), dch20: prev_max(&h, 20), vol20: roll(&v, 20, 20, mean),
-        rv: roll(&rets, 30, 30, std1).iter().map(|x| x * 365f64.sqrt()).collect(), atrp_rank: roll(&atrp, 90, 30, pct_rank), atr,
+        rv: roll(&rets, 30, 30, std1).iter().map(|x| x * periods.sqrt()).collect(), atrp_rank: roll(&atrp, 90, 30, pct_rank), atr,
     }
 }
 
@@ -205,6 +207,7 @@ pub struct Account {
     pub user: String, pub profile: String, pub limits: Limits, pub start_cash: f64, pub goal_amount: f64, pub goal_months: f64,
     pub created: i64, pub status: Status, pub sleeves: BTreeMap<String, Sleeve>, pub trades: Vec<Trade>, pub equity: Vec<(i64, f64)>,
     pub events: VecDeque<Ev>, pub order_times: VecDeque<i64>, pub day: i64, pub day_start_equity: f64, pub mcp_token: String, pub digest: Option<String>,
+    #[serde(default)] pub last_block: HashMap<String, (String, i64)>,
 }
 impl Account {
     pub fn new(user: &str, profile: &str, cash: f64, goal: f64, months: f64, syms: &[String], now: i64) -> Self {
@@ -212,7 +215,7 @@ impl Account {
         Account { user: user.into(), profile: profile.into(), limits: Limits::profile(profile), start_cash: cash, goal_amount: goal, goal_months: months,
             created: now, status: Status::Active, sleeves: syms.iter().map(|s| (s.clone(), Sleeve { cash: per, ..Default::default() })).collect(),
             trades: vec![], equity: vec![(now, cash)], events: VecDeque::new(), order_times: VecDeque::new(), day: now / 86400, day_start_equity: cash,
-            mcp_token: format!("tw_mcp_{}", uuid::Uuid::new_v4().simple()), digest: None }
+            mcp_token: format!("tw_mcp_{}", uuid::Uuid::new_v4().simple()), digest: None, last_block: HashMap::new() }
     }
     pub fn equity(&self, px: &HashMap<String, f64>) -> f64 {
         self.sleeves.iter().map(|(s, sl)| sl.cash + sl.pos.as_ref().map_or(0., |p| p.qty * px.get(s).copied().unwrap_or(p.entry))).sum()
@@ -228,6 +231,7 @@ pub struct Replay { pub status: String, pub equity: Vec<(i64, f64)>, pub buy_hol
 pub struct World {
     pub markets: BTreeMap<String, Market>, pub accounts: HashMap<String, Account>, pub replays: HashMap<String, Replay>,
     pub kill: bool, pub events: VecDeque<Ev>, pub next_id: u64, pub tx: broadcast::Sender<Ev>,
+    pub mirror_user: Option<String>, pub mirror_queue: Vec<(String, String, f64)>,
 }
 impl World {
     pub fn emit(&mut self, acct: Option<&str>, kind: &str, msg: String, data: Value) {
@@ -279,6 +283,8 @@ impl World {
                 if let Some(p) = sl.pos.as_mut() {
                     if let Some(why) = exit_check(p, price, price, &r, (now - p.opened) as f64 / 86400.) {
                         if !kill && a.status != Status::Killed {
+                            let q = sl.pos.as_ref().map_or(0., |p| p.qty);
+                            if self.mirror_user.as_deref() == Some(uid.as_str()) { self.mirror_queue.push((sym.clone(), "sell".into(), q)); }
                             let ev = close_pos(&sym, sl, price * (1. - SLIP), why, now, &mut a.trades);
                             out.push((Some(uid.clone()), "order", ev.0, ev.1));
                         }
@@ -299,12 +305,15 @@ impl World {
                 let t0 = std::time::Instant::now(); let res = gate(&gi, &a.limits); let ns = t0.elapsed().as_nanos() as u64;
                 match res {
                     Err(code) => {
-                        if code != "PAUSED" && code != "KILL_SWITCH" {
+                        let fresh = a.last_block.get(&sym).map_or(true, |(c, t)| c != code || now - t > 600);
+                        if code != "PAUSED" && code != "KILL_SWITCH" && fresh {
+                            a.last_block.insert(sym.clone(), (code.to_string(), now));
                             out.push((Some(uid.clone()), "gate_block", format!("Blocked {} buy of {sym}: {code}", brain.label()), json!({"code": code, "latency_ns": ns, "symbol": sym})));
                         }
                     }
                     Ok(()) => {
                         let cost = q * fill * (1. + FEE); sl.cash -= cost; a.order_times.push_back(now);
+                        if self.mirror_user.as_deref() == Some(uid.as_str()) { self.mirror_queue.push((sym.clone(), "buy".into(), q)); }
                         let stop = fill - k * r.atr;
                         sl.pos = Some(Position { qty: q, entry: fill, cost, brain, regime: m.fin, stop, hi: fill, opened: now, thesis: None });
                         out.push((Some(uid.clone()), "order", format!("Bought {q:.4} {sym} at ${fill:.2}. {} brain: {}. Stop ${stop:.2}.", brain.label(), entry_text(brain, &sym, price, v, &r)),

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
-import { api, stream, setToken, getToken, PROFILES, REGIME_COLOR, usd } from "./api";
+import { api, stream, setToken, getToken, PROFILES, REGIME_COLOR, usd, speak, setVoice } from "./api";
 import { RegimeChart, Lines } from "./Charts";
 
 export default function App({ auth0 }: { auth0: boolean }) {
@@ -30,6 +30,8 @@ function Home({ logout }: { logout: () => void }) {
   const [acct, setAcct] = useState<any>(null), [missing, setMissing] = useState(false), [tab, setTab] = useState("live");
   const [feed, setFeed] = useState<any[]>([]), [reasoning, setReasoning] = useState<Record<string, string>>({}), [banner, setBanner] = useState("");
   const [replay, setReplay] = useState<{ t: number; equity: number; buy_hold: number }[]>([]);
+  const [cfg, setCfg] = useState<any>({}), [voice, setV] = useState(false);
+  useEffect(() => { api("/v1/config").then(setCfg).catch(() => {}); }, []);
   const load = () => api("/v1/accounts/me").then(x => { setAcct(x); setMissing(false); }).catch(e => e.status === 404 && setMissing(true));
   useEffect(() => {
     load(); api("/v1/accounts/me/events").then(setFeed).catch(() => {});
@@ -37,7 +39,8 @@ function Home({ logout }: { logout: () => void }) {
     const close = stream((k, ev) => {
       if (k === "reasoning") return setReasoning(r => ({ ...r, [ev.data.symbol]: ((r[ev.data.symbol] || "") + ev.msg).slice(-900) }));
       if (k === "replay_tick") return setReplay(r => [...r, ev.data]);
-      if (k === "regime") { setBanner(ev.msg); setTimeout(() => setBanner(""), 9000); }
+      if (k === "regime") { setBanner(ev.msg); speak(ev.msg); setTimeout(() => setBanner(""), 9000); }
+      if (k === "order" && ev.data?.reason?.startsWith?.("AI thesis")) speak(ev.msg);
       if (ev.msg) setFeed(f => [ev, ...f].slice(0, 200));
       if (["order", "status", "limits", "auto_pause", "kill", "digest"].includes(k)) load();
     });
@@ -49,11 +52,12 @@ function Home({ logout }: { logout: () => void }) {
     <header>
       <div className="brand">TRIPWIRE</div>
       <nav>{[["live", "Live"], ["proof", "Replay & Backtest"], ["connect", "Talk to Claude"]].map(([k, l]) => <button key={k} className={tab === k ? "on" : ""} onClick={() => setTab(k)}>{l}</button>)}</nav>
+      {cfg.voice && <button className={voice ? "on" : ""} onClick={() => { setVoice(!voice); setV(!voice); }}>{voice ? "🔊 Voice on" : "🔈 Voice alerts"}</button>}
       <button className="ghost" onClick={logout}>Sign out</button>
     </header>
     {banner && <div className="banner">⟳ {banner}</div>}
     {tab === "live" && <Live acct={acct} feed={feed} reasoning={reasoning} reload={load} />}
-    {tab === "proof" && <Proof replay={replay} start={() => { setReplay([]); api("/v1/replays", "POST", { speed: 40 }).catch(e => alert(e.message)); }} />}
+    {tab === "proof" && <Proof replay={replay} stocks={cfg.stocks} start={(dataset: string) => { setReplay([]); api("/v1/replays", "POST", { speed: dataset === "stocks" ? 60 : 40, dataset, from: dataset === "stocks" ? "2024-01-01" : "2025-01-01" }).catch(e => alert(e.message)); }} />}
     {tab === "connect" && <Connect token={acct.mcp_token} />}
   </div>;
 }
@@ -127,16 +131,16 @@ function Live({ acct, feed, reasoning, reload }: any) {
   </div>;
 }
 
-function Proof({ replay, start }: { replay: any[]; start: () => void }) {
+function Proof({ replay, start, stocks }: { replay: any[]; start: (d: string) => void; stocks: boolean }) {
   const [bt, setBt] = useState<any>(null);
   useEffect(() => { api("/v1/backtest").then(setBt).catch(() => {}); }, []);
   const last = replay[replay.length - 1];
   const pctSeries = (k: string) => replay.map(r => [r.t, (r[k] / 10000 - 1) * 100] as [number, number]);
   return <div className="proof">
-    <section className="card"><div className="row between"><h3>Replay: watch it trade 2025 → today, day by day</h3><button className="primary" onClick={start}>▶ Start replay</button></div>
+    <section className="card"><div className="row between"><h3>Replay: watch it trade real history, day by day</h3><div className="row"><button className="primary" onClick={() => start("crypto")}>▶ Crypto 2025 → today</button>{stocks && <button onClick={() => start("stocks")}>▶ Stocks 2024 → today</button>}</div></div>
       {last && <p><b>Tripwire {((last.equity / 10000 - 1) * 100).toFixed(1)}%</b> vs buy & hold {((last.buy_hold / 10000 - 1) * 100).toFixed(1)}% · {new Date(last.t * 1000).toLocaleDateString()}</p>}
       <Lines pct series={[{ name: "Tripwire", color: "#2bb673", points: pctSeries("equity") }, { name: "buy & hold", color: "#9aa0a6", points: pctSeries("buy_hold") }]} />
-      <p className="fine">Same Rust engine as live, fed real daily prices (BTC, ETH, SOL), 0.25% fee + 0.05% slippage per side.</p></section>
+      <p className="fine">Same Rust engine as live, fed real daily prices, 0.25% fee + 0.05% slippage per side. Stocks: AAPL, MSFT, NVDA, AMZN, SPY.</p></section>
     {bt && <section className="card"><h3>Backtest 2022 → 2026 (v2, fees included)</h3>
       <div className="kpis">
         <Kpi label="2025–26 market" value={bt.headline.oos_market + "%"} tone={-1} /><Kpi label="Tripwire 2025–26" value={`+${bt.headline.oos_conservative}% to +${bt.headline.oos_aggressive}%`} tone={1} />

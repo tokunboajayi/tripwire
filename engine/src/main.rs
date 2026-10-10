@@ -29,7 +29,7 @@ async fn main() {
     };
     let (tx, _) = broadcast::channel(1024);
     let accounts: HashMap<String, Account> = std::fs::read_to_string(format!("{}/state.json", cfg.data_dir)).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default();
-    let app: S = Arc::new(App { w: Mutex::new(World { markets: BTreeMap::new(), accounts, replays: HashMap::new(), kill: false, events: VecDeque::new(), next_id: 0, tx }),
+    let app: S = Arc::new(App { w: Mutex::new(World { markets: BTreeMap::new(), accounts, replays: HashMap::new(), kill: false, events: VecDeque::new(), next_id: 0, tx, mirror_user: std::env::var("MIRROR_USER").ok().filter(|s| !s.is_empty()), mirror_queue: vec![] }),
         http: reqwest::Client::builder().timeout(Duration::from_secs(20)).build().unwrap(), jwks: OnceCell::new(), cfg });
     for s in app.cfg.symbols.clone() {
         match klines(&app, &s, Some(1622505600000)).await {
@@ -52,7 +52,7 @@ async fn main() {
         .route("/v1/accounts/me/profile", patch(set_profile)).route("/v1/accounts/me/:action", post(account_action))
         .route("/v1/accounts/me/trades", get(trades)).route("/v1/accounts/me/equity", get(equity)).route("/v1/accounts/me/events", get(events))
         .route("/v1/stream", get(stream)).route("/v1/replays", post(start_replay)).route("/v1/replays/me", get(get_replay))
-        .route("/v1/admin/kill-all", post(kill_all))
+        .route("/v1/admin/kill-all", post(kill_all)).route("/v1/config", get(config)).route("/v1/voice", get(voice))
         .route("/internal/snapshot", get(i_snapshot)).route("/internal/regime", post(i_regime)).route("/internal/positions", get(i_positions))
         .route("/internal/thesis", post(i_thesis)).route("/internal/exit", post(i_exit)).route("/internal/stream", post(i_stream))
         .route("/internal/accounts", get(i_accounts)).route("/internal/digest", post(i_digest)).route("/internal/limits", post(i_limits))
@@ -86,8 +86,25 @@ async fn live_tick(app: &S) {
             }
         }
     }
-    let snapshot = { let mut w = app.w.lock().unwrap(); w.tick(now()); serde_json::to_string(&w.accounts).ok() };
+    let (snapshot, mirror) = { let mut w = app.w.lock().unwrap(); w.tick(now()); (serde_json::to_string(&w.accounts).ok(), std::mem::take(&mut w.mirror_queue)) };
+    for (sym, side, qty) in mirror { mirror_order(app, &sym, &side, qty).await; }
     if let Some(s) = snapshot { let _ = std::fs::create_dir_all(&app.cfg.data_dir); let _ = std::fs::write(format!("{}/state.json", app.cfg.data_dir), s); }
+}
+
+/// Mirror an order to the owner's Alpaca paper account (real broker paper fills). Ledger stays simulated.
+async fn mirror_order(app: &S, sym: &str, side: &str, qty: f64) {
+    let (Ok(k), Ok(sec)) = (std::env::var("APCA_API_KEY_ID"), std::env::var("APCA_API_SECRET_KEY")) else { return };
+    let url = format!("{}/v2/orders", env("APCA_PAPER_URL", "https://paper-api.alpaca.markets"));
+    let body = json!({"symbol": format!("{sym}/USD"), "qty": format!("{qty:.6}"), "side": side, "type": "market", "time_in_force": "gtc",
+        "client_order_id": format!("tw-{}", uuid::Uuid::new_v4().simple())});
+    let res = app.http.post(url).header("APCA-API-KEY-ID", k).header("APCA-API-SECRET-KEY", sec).json(&body).send().await;
+    let (msg, ok) = match res {
+        Ok(r) if r.status().is_success() => { let v: Value = r.json().await.unwrap_or_default(); (format!("Mirrored to Alpaca paper: {side} {qty:.4} {sym} (order {}, status {}).", v["id"].as_str().unwrap_or("?"), v["status"].as_str().unwrap_or("?")), true) }
+        Ok(r) => { let st = r.status(); (format!("Alpaca paper mirror rejected {side} {sym}: HTTP {st} {}", r.text().await.unwrap_or_default().chars().take(120).collect::<String>()), false) }
+        Err(e) => (format!("Alpaca paper mirror failed: {e}"), false),
+    };
+    let mut w = app.w.lock().unwrap(); let u = w.mirror_user.clone();
+    w.emit(u.as_deref(), "mirror", msg, json!({"ok": ok, "symbol": sym, "side": side}));
 }
 
 // ---------- auth ----------
@@ -190,7 +207,9 @@ async fn account_action(State(app): State<S>, h: HeaderMap, Path(action): Path<S
         "pause" => { a.status = Status::Paused; evs.push(("status".into(), "Paused. Open positions keep their stops.".into(), json!({}))) }
         "resume" => { a.status = Status::Active; evs.push(("status".into(), "Resumed.".into(), json!({}))) }
         "kill" => { a.status = Status::Killed; evs.push(("status".into(), "Kill switch on: no new orders.".into(), json!({}))) }
-        "flatten" => { let t = now(); for (s, sl) in a.sleeves.iter_mut() { if sl.pos.is_some() { let (m, d) = close_pos(s, sl, px[s] * (1. - SLIP), "flatten", t, &mut a.trades); evs.push(("order".into(), m, d)); } } }
+        "flatten" => { let t = now(); let mut mq = vec![];
+            for (s, sl) in a.sleeves.iter_mut() { if let Some(q) = sl.pos.as_ref().map(|p| p.qty) { mq.push((s.clone(), "sell".to_string(), q)); let (m, d) = close_pos(s, sl, px[s] * (1. - SLIP), "flatten", t, &mut a.trades); evs.push(("order".into(), m, d)); } }
+            if w.mirror_user.as_deref() == Some(u.as_str()) { w.mirror_queue.extend(mq); } }
         "agent-loosen" => {
             // Demo: an AI agent asks for double risk after a loss. Rust refuses.
             let mut req = a.limits; req.risk *= 2.; req.maxpos = (req.maxpos * 1.5).min(1.);
@@ -229,7 +248,7 @@ async fn kill_all(State(app): State<S>, h: HeaderMap) -> R {
 }
 
 // ---------- replay: v2 engine over 2025 → today, streamed ----------
-#[derive(Deserialize)] struct ReplayReq { speed: Option<f64>, from: Option<String> }
+#[derive(Deserialize)] struct ReplayReq { speed: Option<f64>, from: Option<String>, dataset: Option<String> }
 async fn start_replay(State(app): State<S>, h: HeaderMap, Json(b): Json<ReplayReq>) -> R {
     let u = writer(&app, &h).await?;
     let from = chrono::NaiveDate::parse_from_str(&b.from.unwrap_or("2025-01-01".into()), "%Y-%m-%d").map_err(|_| err(StatusCode::BAD_REQUEST, "from"))?
@@ -239,7 +258,10 @@ async fn start_replay(State(app): State<S>, h: HeaderMap, Json(b): Json<ReplayRe
         if w.replays.get(&u).map_or(false, |r| r.status == "running") { return Err(err(StatusCode::CONFLICT, "replay running")) }
         w.replays.insert(u.clone(), Replay { status: "running".into(), ..Default::default() });
         let lim = w.accounts.get(&u).map(|a| a.limits).unwrap_or(Limits::profile("balanced"));
-        (lim, w.markets.iter().map(|(s, m)| (s.clone(), m.candles.clone(), m.inds.clone())).collect::<Vec<_>>())
+        let data = if b.dataset.as_deref() == Some("stocks") {
+            match load_stocks(&app.cfg.data_dir) { Some(d) => d, None => { w.replays.remove(&u); return Err(err(StatusCode::NOT_FOUND, "no stock data: run data/fetch_stocks.py")) } }
+        } else { w.markets.iter().map(|(s, m)| (s.clone(), m.candles.clone(), m.inds.clone())).collect::<Vec<_>>() };
+        (lim, data)
     };
     let speed = b.speed.unwrap_or(20.).clamp(1., 200.);
     tokio::spawn(async move {
@@ -270,6 +292,27 @@ async fn start_replay(State(app): State<S>, h: HeaderMap, Json(b): Json<ReplayRe
         w.emit(Some(&rid), "replay_done", "Replay finished.".into(), json!({}));
     });
     ok(json!({"status": "running", "speed": speed}))
+}
+fn load_stocks(dir: &str) -> Option<Vec<(String, Vec<Candle>, Inds)>> {
+    let m: BTreeMap<String, Vec<Candle>> = serde_json::from_str(&std::fs::read_to_string(format!("{dir}/stocks.json")).ok()?).ok()?;
+    let v: Vec<_> = m.into_iter().filter(|(_, c)| c.len() > 300).map(|(s, c)| { let i = compute_ann(&c, 252.); (s, c, i) }).collect();
+    if v.is_empty() { None } else { Some(v) }
+}
+async fn config(State(app): State<S>) -> R {
+    ok(json!({"voice": std::env::var("ELEVENLABS_API_KEY").map_or(false, |k| !k.is_empty()), "stocks": std::path::Path::new(&format!("{}/stocks.json", app.cfg.data_dir)).exists(),
+        "mirror": app.w.lock().unwrap().mirror_user.is_some(), "symbols": app.cfg.symbols}))
+}
+#[derive(Deserialize)] struct VoiceQ { text: String, token: String }
+/// ElevenLabs text-to-speech proxy so the key never reaches the browser.
+async fn voice(State(app): State<S>, Query(q): Query<VoiceQ>) -> R {
+    user_from_token(&app, &q.token).await.ok_or(err(StatusCode::UNAUTHORIZED, "token"))?;
+    let key = std::env::var("ELEVENLABS_API_KEY").ok().filter(|k| !k.is_empty()).ok_or(err(StatusCode::NOT_FOUND, "voice off"))?;
+    let vid = env("ELEVENLABS_VOICE", "21m00Tcm4TlvDq8ikWAM");
+    let r = app.http.post(format!("https://api.elevenlabs.io/v1/text-to-speech/{vid}")).header("xi-api-key", key)
+        .json(&json!({"text": q.text.chars().take(240).collect::<String>(), "model_id": "eleven_turbo_v2_5"})).send().await.map_err(|e| err(StatusCode::BAD_GATEWAY, &e.to_string()))?;
+    if !r.status().is_success() { return Err(err(StatusCode::BAD_GATEWAY, "elevenlabs")) }
+    let bytes = r.bytes().await.map_err(|e| err(StatusCode::BAD_GATEWAY, &e.to_string()))?;
+    Ok(([(axum::http::header::CONTENT_TYPE, "audio/mpeg")], bytes).into_response())
 }
 async fn get_replay(State(app): State<S>, h: HeaderMap) -> R { let (u, _) = who(&app, &h).await?; let w = app.w.lock().unwrap(); ok(json!(w.replays.get(&u))) }
 
@@ -306,7 +349,9 @@ async fn i_exit(State(app): State<S>, h: HeaderMap, Json(b): Json<ExitIn>) -> R 
     let a = w.accounts.get_mut(&b.account).ok_or(err(StatusCode::NOT_FOUND, "account"))?;
     if kill || a.status == Status::Killed { return Err(err(StatusCode::CONFLICT, "KILL_SWITCH")) }
     let sl = a.sleeves.get_mut(&b.symbol).filter(|s| s.pos.is_some()).ok_or(err(StatusCode::NOT_FOUND, "position"))?;
+    let q = sl.pos.as_ref().map_or(0., |p| p.qty);
     let (m, d) = close_pos(&b.symbol, sl, px[&b.symbol] * (1. - SLIP), &format!("AI thesis broken: {}", b.evidence), now(), &mut a.trades);
+    if w.mirror_user.as_deref() == Some(b.account.as_str()) { w.mirror_queue.push((b.symbol.clone(), "sell".into(), q)); }
     w.emit(Some(&b.account), "order", m, d); ok(json!({"ok": true}))
 }
 #[derive(Deserialize)] struct StreamIn { symbol: String, text: String }
