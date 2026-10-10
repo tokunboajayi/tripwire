@@ -2,15 +2,15 @@
    html[data-platform] is set by platform.ts. Dark-first fintech palette: slate + green gains / red losses. */
 :root {
   color-scheme: dark;
-  --bg: #020617; --bg-glow: #0F172A; --card: #0E1223; --card-2: #1E293B; --hover: rgba(148, 163, 184, .08);
-  --line: #1E293B; --line-2: #334155; --text: #F8FAFC; --mute: #94A3B8;
-  --up: #22c55e; --down: #EF4444; --warn: #fbbf24; --info: #60a5fa; --violet: #a78bfa; --sol: #b18cff;
-  --acc: #22C55E; --acc-ink: #0F172A; --acc-soft: rgba(34, 197, 94, .14);
-  --font: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --bg: #05070d; --bg-glow: #0b1426; --card: #0d1220; --card-2: #121a2c; --hover: rgba(148, 163, 184, .08);
+  --line: #1c2538; --line-2: #2a3550; --text: #f1f5f9; --mute: #94a3b8;
+  --up: #22c55e; --down: #f87171; --warn: #fbbf24; --info: #60a5fa; --violet: #a78bfa; --sol: #b18cff;
+  --acc: #22c55e; --acc-ink: #04140a; --acc-soft: rgba(34, 197, 94, .14);
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
   --radius: 14px; --radius-sm: 10px; --ctl: 40px; --gap: 16px; --side-w: 232px;
-  --side-bg: #020617; --title: 28px; --title-w: 700;
-  --ease: cubic-bezier(.2, .8, .2, 1); --t: 200ms;
+  --side-bg: #080c17; --title: 28px; --title-w: 700;
+  --ease: cubic-bezier(.2, .8, .2, 1); --t: 160ms;
 }
 /* macOS: SF Pro, vibrant translucent sidebar, 8–12px radii, compact 32px controls */
 [data-platform="mac"] { --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif; --radius: 12px; --radius-sm: 8px; --ctl: 34px; --side-bg: rgba(13, 18, 32, .62); --title: 26px; }
@@ -233,17 +233,3 @@ th { color: var(--mute); font-weight: 500; font-size: 13px; } .r { text-align: r
 @media (max-width: 380px) { .hero-side, .safety-actions { grid-template-columns: 1fr; } }
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration: 0ms !important; animation-duration: 0ms !important; } }
-
-/* Enterprise Gateway */
-.landing-wrap { display: flex; flex-direction: column; min-height: 100dvh; }
-.landing-header { display: flex; justify-content: space-between; align-items: center; padding: 20px 40px; }
-.header-actions { display: flex; gap: 16px; align-items: center; }
-.badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 13px; font-weight: 600; background: var(--acc-soft); color: var(--acc); margin-bottom: 24px; }
-.hero { padding: 40px 0; text-align: left; }
-.hero-cta { display: flex; flex-direction: column; gap: 12px; max-width: 320px; margin-top: 32px; }
-.trust-signals { margin-top: 80px; padding: 40px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); text-align: center; }
-.logos { display: flex; justify-content: center; gap: 48px; margin-top: 24px; color: var(--mute); font-weight: 600; font-size: 20px; flex-wrap: wrap; }
-.features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; margin-top: 80px; }
-.card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 32px; display: flex; flex-direction: column; gap: 16px; }
-.card h3 { font-size: 18px; margin: 0; color: var(--text); }
-.card p { color: var(--mute); line-height: 1.6; }

@@ -27,56 +27,18 @@ function Brand() { return <div className="brand"><span className="mark"><Icon n=
 
 function Landing({ auth0, login, dev }: { auth0: boolean; login: () => void; dev: (n: string) => void }) {
   const [n, setN] = useState("");
-  return <div className="landing-wrap">
-    <header className="landing-header">
-      <Brand />
-      <div className="header-actions">
-        {auth0 ? <button className="btn ghost" onClick={login}>Sign In</button> : null}
-        <a href="#demo" className="btn sm">Watch Demo</a>
-      </div>
-    </header>
-    <main className="landing">
-      <section className="hero">
-        <div className="badge">New: Breakout Brain 2.0</div>
-        <h1>Enterprise-Grade AI.<br />Cryptographic <span className="accent">Safety.</span></h1>
-        <p className="sub">An autonomous trading engine that adapts to market regimes instantly. AI executes the strategy, while Rust enforces your unbreachable risk limits.</p>
-        
-        <div className="hero-cta">
-          {auth0 ? <button className="btn primary lg block" onClick={login}>Deploy Tripwire</button>
-            : <form onSubmit={e => { e.preventDefault(); n.trim() && dev(n.trim()); }} className="signin">
-                <label htmlFor="nm" className="sr">Your name</label>
-                <input id="nm" placeholder="Enter your name to start" autoComplete="given-name" value={n} onChange={e => setN(e.target.value)} />
-                <button className="btn primary lg" disabled={!n.trim()}>Deploy</button></form>}
-          <p className="fine"><Icon n="ok" size={14} /> Paper money only. SOC2 compliance pending.</p>
-        </div>
-      </section>
-
-      <section className="trust-signals">
-        <p className="label">SECURED BY</p>
-        <div className="logos">
-          <span>Solana</span><span>Auth0</span><span>Vultr</span><span>Anthropic</span>
-        </div>
-      </section>
-
-      <section className="features-grid">
-        <div className="card">
-          <Icon n="proof" size={24} className="accent" />
-          <h3>Mathematical Guardrails</h3>
-          <p>AI can tighten risk, but never loosen it. Rust layer enforces max position sizing.</p>
-        </div>
-        <div className="card">
-          <Icon n="chain" size={24} className="accent" />
-          <h3>Cryptographic Audit</h3>
-          <p>Every single decision, reasoning log, and trade is permanently anchored to Solana.</p>
-        </div>
-        <div className="card">
-          <Icon n="connect" size={24} className="accent" />
-          <h3>Real-time Alerts</h3>
-          <p>Stay updated with instant iMessage notifications and ElevenLabs voice alerts.</p>
-        </div>
-      </section>
-    </main>
-  </div>;
+  return <main className="landing">
+    <Brand />
+    <h1>Set your risk.<br />AI trades. <span className="accent">Rust keeps it safe.</span></h1>
+    <p className="sub">An AI investor that picks one of three trading brains to fit the market, behind a safety layer it can't override. Every decision is explained and anchored on Solana.</p>
+    {auth0 ? <button className="btn primary lg" onClick={login}>Sign in to start</button>
+      : <form onSubmit={e => { e.preventDefault(); n.trim() && dev(n.trim()); }} className="signin">
+          <label htmlFor="nm" className="sr">Your name</label>
+          <input id="nm" placeholder="Your name" autoComplete="given-name" value={n} onChange={e => setN(e.target.value)} />
+          <button className="btn primary lg" disabled={!n.trim()}>Start</button></form>}
+    <ul className="proofline"><li><Icon n="proof" size={16} />AI can tighten risk, never loosen it</li><li><Icon n="chain" size={16} />Track record verifiable on Solana</li><li><Icon n="connect" size={16} />Texts you over iMessage</li></ul>
+    <p className="fine">Paper money only. Not financial advice.</p>
+  </main>;
 }
 
 function Home({ logout }: { logout: () => void }) {
