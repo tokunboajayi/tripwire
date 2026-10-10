@@ -19,6 +19,8 @@ Hacklanta '26 · Fintech track · paper trading on live crypto · not financial 
 
 **The AI picks the brain. Rust checks every order.** The AI can tighten your limits but never loosen them.
 
+**Don't trust our track record, verify it.** Every trade, AI decision and blocked order is SHA-256 hash-chained and the chain head is written to Solana every 5 minutes. The Proof tab recomputes the chain in your browser and checks it against the blockchain.
+
 ## Results (real backtest, fees included)
 | | Tripwire (conservative) | Buy & hold |
 |---|---|---|
@@ -33,7 +35,7 @@ Small sample (98 trades). It lags in strong bull runs; it's built to protect. De
 |---|---|---|
 | `engine/` | Rust: indicators, regime, brains, risk gate, execution, API | Owner |
 | `data/` `backtest/` | market data, fixtures, replays, backtest | B · Data |
-| `agents/` `mcp/` | AI agents + MCP server | C · AI & MCP |
+| `agents/` `mcp/` | AI agents, Solana anchoring, MCP server | C · AI & MCP |
 | `web/` `landing/` | dashboard + public site | D · Product |
 | `docs/` | idea, spec, plan, prompts | everyone |
 

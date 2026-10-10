@@ -51,7 +51,8 @@ Do NOT say "first AI trader ever." Say: *institutional ideas (regime switching, 
 5. **Confidence sizing:** agent confidence 0.5–1.0 scales size (never above the profile cap).
 6. **Goal progress + daily digest:** "Today +0.8%, 2 trades, 1 win. Goal: 34% of the way."
 7. **Live reasoning stream:** the Regime Agent's thinking streams token-by-token on screen.
-8. **Talk to your portfolio (MCP):** ask Claude "why did you sell ETH?" → answer from Tripwire data.
+8. **Verified on Solana:** every action is hash-chained and anchored on Solana; anyone can verify the history in their browser.
+9. **Talk to your portfolio (MCP):** ask Claude "why did you sell ETH?" → answer from Tripwire data.
 
 ## Vs. who
 | | Robinhood | Acorns / robo | Bots | **Tripwire** |
