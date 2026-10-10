@@ -3,6 +3,8 @@ services:
   engine:
     build: { context: .., args: { VITE_AUTH0_DOMAIN: "${VITE_AUTH0_DOMAIN:-}", VITE_AUTH0_CLIENT_ID: "${VITE_AUTH0_CLIENT_ID:-}", VITE_AUTH0_AUDIENCE: "${AUTH0_AUDIENCE:-}" } }
     env_file: ../.env
+    # container paths win over local-dev paths in .env
+    environment: { DATA_DIR: /data, WEB_DIR: /app/web, PORT: "8080" }
     volumes: [ "tripwire-data:/data" ]
     ports: [ "8080:8080" ]
     restart: unless-stopped
@@ -16,6 +18,7 @@ services:
     image: caddy:2
     profiles: [ "https" ]
     ports: [ "80:80", "443:443" ]
+    environment: { DOMAIN: "${DOMAIN:-localhost}" }
     volumes: [ "./Caddyfile:/etc/caddy/Caddyfile", "caddy-data:/data" ]
     depends_on: [ engine ]
 volumes: { tripwire-data: {}, caddy-data: {} }

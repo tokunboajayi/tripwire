@@ -1,5 +1,6 @@
-# Set your domain, then: docker compose -f deploy/docker-compose.yml --profile https up -d
-your-domain.com {
+# Domain comes from DOMAIN= in .env (no file edit needed).
+# Run: docker compose --env-file .env -f deploy/docker-compose.yml --profile https up -d
+{$DOMAIN:localhost}, www.{$DOMAIN:localhost} {
 	reverse_proxy engine:8080 {
 		flush_interval -1
 	}
