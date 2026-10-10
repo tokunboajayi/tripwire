@@ -45,14 +45,23 @@ Tools that take a `symbol` switch the chart and then put it back. Overlay drawin
 
 ## Run it
 
-Requires Python 3.12+, [uv](https://docs.astral.sh/uv/), and TradingView Desktop.
+Requires Python 3.11+ and TradingView Desktop. Either route works:
 
 ```bash
 cd tv-mcp
-uv sync
-uv run pytest
+pip install -r requirements.txt        # the repo's usual setup; installs the tripwire-tv-mcp command
+claude mcp add tripwire-tv -- tripwire-tv-mcp
+```
+
+```bash
+cd tv-mcp
+uv sync && uv run pytest               # with uv
 claude mcp add tripwire-tv -- uv run --directory /path/to/tripwire/tv-mcp tripwire-tv-mcp
 ```
+
+Settings come from the repo-root `.env` (same file as the engine, agents and `mcp/`); real environment variables win.
+
+**Windows:** TradingView Desktop from the Microsoft Store lives in the locked `WindowsApps` folder, where the debug port often won't open. `tv_launch` finds it with `Get-AppxPackage`, and if a direct launch fails it copies the app once to `%LOCALAPPDATA%\tripwire-tv-mcp` and launches that copy (the result says `msix_local_copy: true`). If TradingView is already open without the debug port, use `tv_launch` with `kill_existing=true`.
 
 Then ask: *"Launch TradingView and tell me which brain fits BTC and ETH right now."*
 

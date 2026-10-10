@@ -14,6 +14,7 @@ from typing import Literal
 from mcp.server.fastmcp import FastMCP, Image
 from mcp.types import ToolAnnotations
 
+from . import envload  # noqa: F401  (must run before cdp/engine read the env)
 from . import launch as launcher
 from .cdp import CDPClient
 from .chart import Chart

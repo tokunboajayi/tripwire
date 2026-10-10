@@ -1,0 +1,7 @@
+# pip route (the repo's usual setup):  cd tv-mcp && pip install -r requirements.txt
+# then run it with:  tripwire-tv-mcp   (or: python -m tripwire_tv_mcp.server)
+# uv users can skip this file:  uv sync && uv run tripwire-tv-mcp
+httpx>=0.27
+mcp>=1.12,<2
+websockets>=13
+-e .

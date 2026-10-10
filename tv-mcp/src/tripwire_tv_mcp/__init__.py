@@ -1,2 +1,1 @@
-def hello() -> str:
-    return "Hello from tripwire-tv-mcp!"
+"""Tripwire TradingView MCP server."""

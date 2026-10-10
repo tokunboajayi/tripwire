@@ -13,12 +13,12 @@ from .chart import CHART
 
 TAG = "TW"
 COLORS = {"buy": "#22c55e", "sell": "#ef4444", "stop": "#f97316", "target": "#3b82f6", "note": "#a855f7"}
-BRAIN_COLORS = {
-    "mean_reversion": "#3b82f6",
-    "trend": "#22c55e",
-    "breakout": "#eab308",
-    "shield": "#94a3b8",
-}
+# Keyed by the engine's brain codes (see regime.BRAIN_BY_REGIME).
+BRAIN_COLORS = {"MR": "#3b82f6", "TREND": "#22c55e", "BREAKOUT": "#eab308", "SHIELD": "#94a3b8"}
+
+
+def brain_color(brain: str | None) -> str:
+    return BRAIN_COLORS.get((brain or "").upper(), COLORS["note"])
 
 
 def _finite(value: float, name: str) -> float:
@@ -77,7 +77,7 @@ class Drawer:
         return {"entity_id": shape_id, "kind": kind, "price": price, "text": label}
 
     async def note(self, time: float, price: float, text: str, brain: str | None = None) -> dict:
-        color = BRAIN_COLORS.get(brain or "", COLORS["note"])
+        color = brain_color(brain)
         label = f"{TAG} {text}"
         shape_id = await self._create(
             _unix_seconds(time), _finite(price, "price"), "text", label,
