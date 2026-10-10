@@ -56,7 +56,7 @@ function Home({ logout }: { logout: () => void }) {
       <button className="ghost" onClick={logout}>Sign out</button>
     </header>
     {banner && <div className="banner">⟳ {banner}</div>}
-    {tab === "live" && <Live acct={acct} feed={feed} reasoning={reasoning} reload={load} />}
+    {tab === "live" && <Live acct={acct} feed={feed} reasoning={reasoning} reload={load} voiceAvail={cfg.voice} />}
     {tab === "proof" && <Proof replay={replay} stocks={cfg.stocks} start={(dataset: string) => { setReplay([]); api("/v1/replays", "POST", { speed: dataset === "stocks" ? 60 : 40, dataset, from: dataset === "stocks" ? "2024-01-01" : "2025-01-01" }).catch(e => alert(e.message)); }} />}
     {tab === "connect" && <Connect token={acct.mcp_token} />}
   </div>;
@@ -84,7 +84,7 @@ function Onboard({ done }: { done: () => void }) {
   </div>;
 }
 
-function Live({ acct, feed, reasoning, reload }: any) {
+function Live({ acct, feed, reasoning, reload, voiceAvail }: any) {
   const [regimes, setRegimes] = useState<any[]>([]), [sym, setSym] = useState("BTC"), [candles, setCandles] = useState<any[]>([]);
   useEffect(() => { const f = () => api("/v1/market/regimes").then(setRegimes); f(); const t = setInterval(f, 30000); return () => clearInterval(t); }, []);
   useEffect(() => { api(`/v1/market/${sym}/candles?days=365`).then(setCandles); }, [sym]);
@@ -122,7 +122,7 @@ function Live({ acct, feed, reasoning, reload }: any) {
         {acct.positions.length ? <table><thead><tr><th>Coin</th><th>Brain</th><th>Value</th><th>P&L</th><th>Stop</th></tr></thead><tbody>
           {acct.positions.map((p: any) => <tr key={p.symbol} title={p.thesis?.reason}><td>{p.symbol}</td><td>{p.brain_label}</td><td>{usd(p.value)}</td><td className={p.pnl >= 0 ? "up" : "down"}>{usd(p.pnl)}</td><td>{usd(p.stop)}</td></tr>)}
         </tbody></table> : <p className="fine">No positions. The AI is waiting for its setup, or holding cash on purpose.</p>}
-        {acct.digest && <p className="digest">📝 {acct.digest}</p>}
+        {acct.digest && <p className="digest">📝 {acct.digest} {voiceAvail && <button className="ghost" onClick={() => speak(acct.digest, true)}>▶ Listen</button>}</p>}
       </section>
       <section className="card feed"><h3>Why-log</h3>{feed.filter((e: any) => !e.kind.startsWith("replay")).map((e: any) =>
         <div key={e.id + e.kind + e.ts} className={"ev " + e.kind}><time>{new Date(e.ts * 1000).toLocaleTimeString()}</time>

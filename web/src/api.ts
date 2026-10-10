@@ -28,7 +28,7 @@ export const usd = (n: number) => (n < 0 ? "-$" : "$") + Math.abs(n).toLocaleStr
 let voiceOn = false;
 export const setVoice = (on: boolean) => (voiceOn = on);
 /** Speak an alert through the engine's ElevenLabs proxy (key stays server-side). */
-export function speak(text: string) {
-  if (!voiceOn || !text) return;
+export function speak(text: string, force = false) {
+  if ((!voiceOn && !force) || !text) return;
   new Audio(`/v1/voice?token=${encodeURIComponent(token)}&text=${encodeURIComponent(text)}`).play().catch(() => {});
 }
