@@ -101,8 +101,23 @@ console.log(`tripwire imessage agent: ${cloud ? "Photon iMessage" : "terminal (s
 const im: any = cloud ? imessage(app) : null;
 const send = async (phone: string, text: string) => {
   if (!im) { console.log(`[text to ${phone}] ${text}`); return; }
+  console.log(`-> sending to ${phone}: ${text.slice(0, 60)}`);
   const space = await im.space.create(phone); await space.send(text);
+  console.log(`   sent ok to ${phone}`);
 };
+
+// Diagnostic: bun src/index.ts --ping +14045551234  -> sends one test text and exits
+const pi = process.argv.indexOf("--ping");
+if (pi > -1) {
+  const to = process.argv[pi + 1];
+  if (!to) { console.error("usage: bun src/index.ts --ping +1XXXXXXXXXX"); process.exit(1); }
+  try { await send(to, "Tripwire test: if you see this, outbound iMessage works. Reply \"help\"."); process.exit(0); }
+  catch (e: any) { console.error("PING FAILED:", e?.message ?? e); process.exit(1); }
+}
+
+// Startup status: which phones are linked (alerts only go to linked phones)
+call("/internal/phones").then((p: any[]) => console.log(p.length ? `linked phones: ${p.map((x) => x.phone).join(", ")}` : "linked phones: NONE. Text \"link <code>\" from the dashboard's Text me button to the Photon number."))
+  .catch((e) => console.error("cannot reach engine:", e.message));
 setInterval(() => pollAlerts(send).catch((e) => console.error("poll", e.message)), POLL_MS);
 
 for await (const [space, msg] of (app as any).messages) {
@@ -110,6 +125,7 @@ for await (const [space, msg] of (app as any).messages) {
   const c: any = msg.content; const text = c?.type === "text" ? c.text : c?.type === "markdown" ? c.markdown : "";
   if (!text) continue;
   const phone = cloud ? (msg.sender?.id ?? space.id) : "terminal";
+  console.log(`<- inbound from ${phone}: ${text.slice(0, 60)}`);
   const run = async () => { try { await msg.reply(await handle(phone, text)); } catch (e: any) { await msg.reply("Something went wrong on my side: " + e.message); } };
   typeof space.responding === "function" ? await space.responding(run) : await run();
 }
