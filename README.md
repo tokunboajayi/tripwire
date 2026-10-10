@@ -42,7 +42,7 @@ Small sample (98 trades). It lags in strong bull runs; it's built to protect. De
 cp .env.example .env                       # DEV=1 works with no keys at all
 cd web && npm install && npm run build     # dashboard
 cd ../engine && DEV=1 DATA_DIR=../data cargo run --release   # http://localhost:8080
-# optional: AI agents (needs ANTHROPIC_API_KEY)  cd agents && pip install -r requirements.txt && python worker.py
+# AI agents: cd agents && pip install -r requirements.txt && python worker.py   (no key = rule-based mode; ANTHROPIC_API_KEY in .env = Claude)
 # optional: MCP for Claude Desktop               cd mcp && pip install -r requirements.txt  (config on the "Talk to Claude" tab)
 ```
 Tests: `cd engine && cargo test` (risk-gate codes, tighten-only limits, AI override, **Rust-vs-Python parity** on 1,700 days of BTC).

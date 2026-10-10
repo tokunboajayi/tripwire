@@ -4,6 +4,7 @@ import os, json, re, time, hashlib, pathlib, datetime as dt
 import httpx
 from pydantic import BaseModel, Field
 from prompts import REGIME, THESIS, VERDICT, DIGEST
+import narrator
 
 API = os.getenv("TRIPWIRE_API", "http://localhost:8080")
 H = {"x-internal-token": os.getenv("INTERNAL_TOKEN", "change-me")}
@@ -76,19 +77,44 @@ def digest_round():
                  "closed_today": [f'{t["symbol"]} {t["reason"]} {t["ret"]:+.1%}' for t in a["trades_today"]]}
         http.post(f"{API}/internal/digest", headers=H, json={"account": a["user"], "text": ask(HAIKU, DIGEST.format(stats=json.dumps(stats)), 200).strip()})
 
+def regime_round_rules():
+    for m in http.get(f"{API}/internal/snapshot", headers=H).json():
+        http.post(f"{API}/internal/stream", headers=H, json={"symbol": m["symbol"], "text": narrator.reasoning(m)})
+
+def thesis_round_rules(seen: set):
+    pos = http.get(f"{API}/internal/positions", headers=H).json()
+    if not pos: return
+    snap = {m["symbol"]: m for m in http.get(f"{API}/internal/snapshot", headers=H).json()}
+    heads = news(sorted({p["symbol"] for p in pos}))
+    for p in pos:
+        sym = p["symbol"]
+        if not p["thesis"]:
+            http.post(f"{API}/internal/thesis", headers=H, json={"account": p["account"], "symbol": sym, **narrator.thesis(p["brain"], snap[sym]["indicators"])}); continue
+        for n in [n for n in heads if sym in n["symbols"]]:
+            k = (p["account"], sym, n["id"])
+            if k in seen: continue
+            seen.add(k); v = narrator.verdict(n["headline"])
+            if v["verdict"] == "break":
+                http.post(f"{API}/internal/exit", headers=H, json={"account": p["account"], "symbol": sym, "evidence": v["evidence"]}); break
+
+def digest_round_rules():
+    for a in http.get(f"{API}/internal/accounts", headers=H).json():
+        http.post(f"{API}/internal/digest", headers=H, json={"account": a["user"], "text": narrator.digest(a)})
+
 def main():
-    if not llm: print("No ANTHROPIC_API_KEY: agents idle, engine runs on deterministic regimes."); 
+    print("Agents: Claude" if llm else "Agents: rule-based mode (no ANTHROPIC_API_KEY). Add a key to .env to switch to Claude.")
+    R = (regime_round, lambda: thesis_round(seen), digest_round) if llm else (regime_round_rules, lambda: thesis_round_rules(seen), digest_round_rules)
     last = {"regime": 0, "thesis": 0, "digest": ""}; seen = set()
     while True:
         now = time.time(); et = dt.datetime.now(dt.timezone(dt.timedelta(hours=-4)))
-        for name, every, fn in [("regime", 900, regime_round), ("thesis", 60, lambda: thesis_round(seen))]:
-            if llm and now - last[name] >= every:
+        for name, every, fn in [("regime", int(os.getenv("REGIME_EVERY_S", "900")), R[0]), ("thesis", 60, R[1])]:
+            if now - last[name] >= every:
                 last[name] = now
                 try: fn()
                 except Exception as e: print(name, "error (engine falls back):", e)
-        if llm and et.hour == 20 and last["digest"] != et.date().isoformat():
+        if et.hour == 20 and last["digest"] != et.date().isoformat():
             last["digest"] = et.date().isoformat()
-            try: digest_round()
+            try: R[2]()
             except Exception as e: print("digest error", e)
         time.sleep(10)
 
