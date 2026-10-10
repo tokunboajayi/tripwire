@@ -1,5 +1,13 @@
 # 03 · Build Spec (source of truth)
 
+> **v1 is implemented** (Oct 9). What shipped differs from the plan below in these places:
+> - Market data: Binance public data API (no key) instead of Alpaca for prices; Alpaca is only used for news (optional).
+> - Storage: in-memory state saved to `DATA_DIR/state.json` every minute instead of SQLite.
+> - Each account is split into equal per-coin sleeves (matches the backtest exactly).
+> - Confidence sizing uses the accepted Regime Agent confidence (0.5–1.0), not the thesis.
+> - Alpaca paper mirror and stock replay are not built yet (cut-list items 3–4).
+> - Live signals are evaluated every 60s on the current (still-forming) daily candle; stops use the live price.
+
 ## 1. Stack
 | Layer | Choice |
 |---|---|

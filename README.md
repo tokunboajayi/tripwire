@@ -37,11 +37,16 @@ Small sample (98 trades). It lags in strong bull runs; it's built to protect. De
 | `web/` `landing/` | dashboard + public site | D · Product |
 | `docs/` | idea, spec, plan, prompts | everyone |
 
-## Run
+## Run it locally (2 terminals)
 ```bash
-cp .env.example .env   # fill keys
-docker compose -f deploy/docker-compose.yml up
+cp .env.example .env                       # DEV=1 works with no keys at all
+cd web && npm install && npm run build     # dashboard
+cd ../engine && DEV=1 DATA_DIR=../data cargo run --release   # http://localhost:8080
+# optional: AI agents (needs ANTHROPIC_API_KEY)  cd agents && pip install -r requirements.txt && python worker.py
+# optional: MCP for Claude Desktop               cd mcp && pip install -r requirements.txt  (config on the "Talk to Claude" tab)
 ```
+Tests: `cd engine && cargo test` (risk-gate codes, tighten-only limits, AI override, **Rust-vs-Python parity** on 1,700 days of BTC).
+Deploy: `docker compose -f deploy/docker-compose.yml up -d --build`.
 
 ## Team
 | Name | Seat | GitHub |

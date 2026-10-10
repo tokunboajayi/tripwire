@@ -1,5 +1,8 @@
 # 05 · Prompt Guide for Claude Code (token-lean)
 
+> **Status Oct 9:** A1–A6, B1–B3, C1–C5, D1–D5 are built and tested. Remaining: A7 (Auth0 live config + deploy), B4–B5 (stock replay, Alpaca mirror), D6 (Auth0 keys), P13/P14 polish.
+> Use the prompts below to *extend* the code, e.g. `Read engine/src/engine.rs. Add <feature> per BUILD_SPEC §x. Minimal diff.`
+
 ## Rules
 - One prompt = one milestone. Commit after each.
 - Always point at the spec section; never paste the spec.

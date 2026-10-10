@@ -1,0 +1,6 @@
+# Set your domain, then: docker compose -f deploy/docker-compose.yml --profile https up -d
+your-domain.com {
+	reverse_proxy engine:8080 {
+		flush_interval -1
+	}
+}

@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tripwire</title><meta name="description" content="An AI investor that switches trading brains to fit the market, with a Rust safety layer it can't override.">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0b0e14;--card:#131824;--line:#232a3a;--text:#e7ebf3;--mute:#9aa3b2;--up:#2bb673;--acc:#4c8bf5;--down:#e5484d}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]){--bg:#f6f7fb;--card:#fff;--line:#e3e6ee;--text:#121620;--mute:#5d6678}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:16px/1.6 Inter,system-ui,sans-serif}
+main{max-width:1040px;margin:0 auto;padding:0 16px}a{color:var(--acc)}.brand{font-weight:800;letter-spacing:.18em;font-size:13px;padding:24px 0}
+h1{font-size:clamp(34px,6vw,58px);line-height:1.05;margin:40px 0 16px}h2{font-size:28px;margin:64px 0 16px}.sub{font-size:19px;color:var(--mute);max-width:640px}
+.cta{display:flex;gap:12px;flex-wrap:wrap;margin:28px 0}.btn{padding:12px 22px;border-radius:12px;border:1px solid var(--line);text-decoration:none;color:var(--text);font-weight:600}.btn.p{background:var(--acc);border-color:var(--acc);color:#fff}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px}
+.card b{display:block;font-size:18px;margin-bottom:6px}.k{font-size:34px;font-weight:800}.up{color:var(--up)}.down{color:var(--down)}.mute{color:var(--mute);font-size:14px}
+table{width:100%;border-collapse:collapse;font-size:15px}td,th{padding:10px;border-bottom:1px solid var(--line);text-align:left}th{color:var(--mute);font-weight:600}
+img{width:100%;border-radius:12px;background:#fff}footer{color:var(--mute);font-size:13px;padding:56px 0 40px}.strip{display:flex;flex-wrap:wrap;gap:10px}.strip span{border:1px solid var(--line);border-radius:999px;padding:6px 14px;font-size:14px}
+.flow{display:flex;flex-wrap:wrap;gap:10px;align-items:center;font-weight:600}.flow i{color:var(--mute);font-style:normal}
+</style></head><body><main>
+<div class="brand">TRIPWIRE</div>
+<h1>Set your risk.<br>AI trades.<br>Rust keeps it safe.</h1>
+<p class="sub">An AI investor for regular people. It switches between three trading brains to fit the market, explains every move in plain English, and runs behind a safety layer it can't override.</p>
+<div class="cta"><a class="btn p" href="https://github.com/tokunboajayi/tripwire">GitHub</a><a class="btn" href="#results">See the results</a></div>
+
+<h2>The problem</h2>
+<table><tr><th></th><th>Who decides</th><th>Adapts to the market</th><th>Hard risk limits</th><th>Explains itself</th></tr>
+<tr><td>Robinhood</td><td>You (and your panic)</td><td>Only if you do</td><td>No</td><td>No</td></tr>
+<tr><td>Robo-advisors</td><td>A fixed index mix</td><td>No</td><td>n/a</td><td>No</td></tr>
+<tr><td>Trading bots</td><td>One fixed rule</td><td>No</td><td>Rarely</td><td>No</td></tr>
+<tr><td><b>Tripwire</b></td><td>AI, per market regime</td><td class="up">Yes: 3 brains + shield</td><td class="up">Yes, in Rust</td><td class="up">Every trade</td></tr></table>
+
+<h2>Three brains and a shield</h2>
+<div class="grid">
+<div class="card"><b style="color:#4c8bf5">Calm → Mean-Reversion</b><span class="mute">Buys sharp dips, sells the bounce.</span></div>
+<div class="card"><b style="color:#2bb673">Trending → Trend</b><span class="mute">Rides the move, sized by volatility.</span></div>
+<div class="card"><b style="color:#f29d38">Volatile → Breakout</b><span class="mute">Buys confirmed breakouts, tight trailing stop.</span></div>
+<div class="card"><b style="color:#8a8f98">Falling → Shield</b><span class="mute">Holds cash until the market turns.</span></div></div>
+<p class="flow" style="margin-top:20px">AI picks the brain <i>→</i> Rust verifies every order in microseconds <i>→</i> you watch, with a reason for every move</p>
+<p class="mute">The AI can tighten your limits. It can never loosen them. If the AI is slow or wrong, Rust falls back to its own rules.</p>
+
+<h2 id="results">Results (real backtest, fees included)</h2>
+<div class="grid">
+<div class="card"><span class="mute">Crypto, 2025–26</span><div class="k down">−27.5%</div></div>
+<div class="card"><span class="mute">Tripwire, 2025–26</span><div class="k up">+0.4% to +1.5%</div></div>
+<div class="card"><span class="mute">Worst drop, 4 years</span><div class="k">−17% <span class="mute">vs −76%</span></div></div></div>
+<p><img src="equity.png" alt="Tripwire vs buy and hold equity curves, 2022 to 2026"></p>
+<p class="mute">BTC, ETH and SOL daily bars, 0.25% fee + 0.05% slippage per side, 98 trades. Small sample. It trails buy-and-hold in strong bull runs; it's built to protect. Past results don't predict future returns.</p>
+
+<h2>Built with</h2>
+<div class="strip"><span>Rust (axum, tokio)</span><span>Anthropic Claude agents</span><span>Model Context Protocol</span><span>React + TradingView charts</span><span>Auth0</span><span>Vultr</span><span>GoDaddy</span></div>
+
+<h2>Team</h2>
+<div class="grid">
+<div class="card"><b>AJ (Olatokunbo Ajayi)</b><span class="mute">Engine · head of uploads</span></div>
+<div class="card"><b>Bryant Awoh</b><span class="mute">Data & strategy</span></div>
+<div class="card"><b>Ebere</b><span class="mute">AI agents & MCP</span></div>
+<div class="card"><b>Kelly Awoh</b><span class="mute">Product & design</span></div></div>
+<footer>Hacklanta '26 · Fintech track · Paper trading only. Not financial advice. Thanks to Cox Automotive, Adobe, MLH and every Hacklanta sponsor.</footer>
+</main></body></html>

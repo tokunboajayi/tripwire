@@ -1,0 +1,21 @@
+# From repo root: docker compose -f deploy/docker-compose.yml up --build
+services:
+  engine:
+    build: { context: .., args: { VITE_AUTH0_DOMAIN: "${VITE_AUTH0_DOMAIN:-}", VITE_AUTH0_CLIENT_ID: "${VITE_AUTH0_CLIENT_ID:-}", VITE_AUTH0_AUDIENCE: "${AUTH0_AUDIENCE:-}" } }
+    env_file: ../.env
+    volumes: [ "tripwire-data:/data" ]
+    ports: [ "8080:8080" ]
+    restart: unless-stopped
+  agents:
+    build: ../agents
+    env_file: ../.env
+    environment: { TRIPWIRE_API: "http://engine:8080" }
+    depends_on: [ engine ]
+    restart: unless-stopped
+  caddy:
+    image: caddy:2
+    profiles: [ "https" ]
+    ports: [ "80:80", "443:443" ]
+    volumes: [ "./Caddyfile:/etc/caddy/Caddyfile", "caddy-data:/data" ]
+    depends_on: [ engine ]
+volumes: { tripwire-data: {}, caddy-data: {} }
