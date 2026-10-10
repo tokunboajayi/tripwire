@@ -21,3 +21,9 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: '20' }
       - run: cd web && npm ci && npm run build
+  imessage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: cd imessage && bun install && bun test

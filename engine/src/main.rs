@@ -60,6 +60,7 @@ async fn main() {
         .route("/internal/snapshot", get(i_snapshot)).route("/internal/regime", post(i_regime)).route("/internal/positions", get(i_positions))
         .route("/internal/thesis", post(i_thesis)).route("/internal/exit", post(i_exit)).route("/internal/stream", post(i_stream))
         .route("/internal/accounts", get(i_accounts)).route("/internal/digest", post(i_digest)).route("/internal/limits", post(i_limits))
+        .route("/internal/link", post(i_link)).route("/internal/phones", get(i_phones))
         .with_state(app.clone()).layer(cors).fallback_service(web);
     let l = tokio::net::TcpListener::bind(("0.0.0.0", app.cfg.port)).await.unwrap();
     println!("tripwire engine on :{}", app.cfg.port);
@@ -133,6 +134,12 @@ async fn who(app: &App, h: &HeaderMap) -> Result<(String, bool), (StatusCode, St
     if let Some(t) = hv("x-mcp-token") {
         return app.w.lock().unwrap().accounts.values().find(|a| a.mcp_token == t).map(|a| (a.user.clone(), true)).ok_or(err(StatusCode::UNAUTHORIZED, "bad mcp token"));
     }
+    if let (Some(t), Some(u)) = (hv("x-internal-token"), hv("x-act-as")) {
+        // iMessage bridge: may act only for accounts that linked a phone themselves
+        let w = app.w.lock().unwrap();
+        if t == app.cfg.internal_token && w.accounts.get(&u).map_or(false, |a| a.phone.is_some()) { return Ok((u, false)) }
+        return Err(err(StatusCode::UNAUTHORIZED, "bridge: unauthorized or account not linked"));
+    }
     if let Some(b) = hv("authorization") { if let Some(t) = b.strip_prefix("Bearer ") { return user_from_token(app, t).await.map(|u| (u, false)).ok_or(err(StatusCode::UNAUTHORIZED, "bad token")) } }
     if app.cfg.dev { if let Some(u) = hv("x-dev-user") { return Ok((format!("dev|{u}"), false)) } }
     Err(err(StatusCode::UNAUTHORIZED, "sign in"))
@@ -185,7 +192,7 @@ fn summary(w: &World, a: &Account, owner: bool) -> Value {
     let (aw, al) = (avg(a.trades.iter().filter(|t| t.pnl > 0.).map(|t| t.ret)), -avg(a.trades.iter().filter(|t| t.pnl <= 0.).map(|t| t.ret)));
     json!({"user": a.user, "profile": a.profile, "status": a.status, "limits": a.limits, "start_cash": a.start_cash, "equity": eq, "pnl_total": pnl,
         "pnl_today": eq - a.day_start_equity, "goal": {"amount": a.goal_amount, "months": a.goal_months, "progress": (pnl / a.goal_amount).max(0.)},
-        "cash": a.sleeves.values().map(|s| s.cash).sum::<f64>(), "digest": a.digest, "kill_switch": w.kill,
+        "cash": a.sleeves.values().map(|s| s.cash).sum::<f64>(), "digest": a.digest, "kill_switch": w.kill, "imessage": a.phone.is_some(),
         "stats": {"trades": n, "win_rate": if n > 0 { wins as f64 / n as f64 } else { 0. }, "breakeven_win_rate": if aw + al > 0. { al / (aw + al) } else { 0. }},
         "positions": a.sleeves.iter().filter_map(|(s, sl)| sl.pos.as_ref().map(|p| json!({"symbol": s, "qty": p.qty, "entry": p.entry, "price": px[s],
             "value": p.qty * px[s], "pnl": p.qty * px[s] - p.cost, "brain": p.brain, "brain_label": p.brain.label(), "stop": p.stop, "opened": p.opened, "thesis": p.thesis}))).collect::<Vec<_>>(),
@@ -200,7 +207,8 @@ async fn me(State(app): State<S>, h: HeaderMap) -> R {
 async fn set_profile(State(app): State<S>, h: HeaderMap, Json(b): Json<Prof>) -> R {
     let u = writer(&app, &h).await?; let mut w = app.w.lock().unwrap();
     let a = w.accounts.get_mut(&u).ok_or(err(StatusCode::NOT_FOUND, "no account"))?;
-    let l = Limits::profile(&b.profile); a.limits = set_limits(&a.limits, &l, false).map_err(|e| err(StatusCode::BAD_REQUEST, e))?; a.profile = b.profile.clone();
+    let by_text = h.contains_key("x-act-as"); // texts can tighten risk, never loosen it
+    let l = Limits::profile(&b.profile); a.limits = set_limits(&a.limits, &l, by_text).map_err(|e| err(StatusCode::BAD_REQUEST, e))?; a.profile = b.profile.clone();
     let lim = a.limits;
     w.emit(Some(&u), "limits", format!("Risk profile set to {}: risk {:.0}%/trade, max position {:.0}%, daily loss stop {:.0}%.", b.profile, lim.risk * 100., lim.maxpos * 100., lim.daily_loss * 100.), json!({"limits": lim}));
     ok(json!({"limits": lim}))
@@ -209,7 +217,12 @@ async fn account_action(State(app): State<S>, h: HeaderMap, Path(action): Path<S
     let u = writer(&app, &h).await?; let mut w = app.w.lock().unwrap(); let px = w.prices();
     let a = w.accounts.get_mut(&u).ok_or(err(StatusCode::NOT_FOUND, "no account"))?;
     let mut evs: Vec<(String, String, Value)> = vec![];
+    if action == "link-code" {
+        let code = format!("{:04}", uuid::Uuid::new_v4().as_u128() % 10000); a.link_code = Some((code.clone(), now() + 600));
+        return ok(json!({"code": code, "expires_in": 600}));
+    }
     match action.as_str() {
+        "unlink-phone" => { a.phone = None; evs.push(("status".into(), "iMessage unlinked.".into(), json!({}))) }
         "pause" => { a.status = Status::Paused; evs.push(("status".into(), "Paused. Open positions keep their stops.".into(), json!({}))) }
         "resume" => { a.status = Status::Active; evs.push(("status".into(), "Resumed.".into(), json!({}))) }
         "kill" => { a.status = Status::Killed; evs.push(("status".into(), "Kill switch on: no new orders.".into(), json!({}))) }
@@ -307,7 +320,7 @@ fn load_stocks(dir: &str) -> Option<Vec<(String, Vec<Candle>, Inds)>> {
     if v.is_empty() { None } else { Some(v) }
 }
 async fn config(State(app): State<S>) -> R {
-    ok(json!({"voice": std::env::var("ELEVENLABS_API_KEY").map_or(false, |k| !k.is_empty()), "stocks": std::path::Path::new(&format!("{}/stocks.json", app.cfg.data_dir)).exists(),
+    ok(json!({"imessage_number": std::env::var("IMESSAGE_NUMBER").unwrap_or_default(), "voice": std::env::var("ELEVENLABS_API_KEY").map_or(false, |k| !k.is_empty()), "stocks": std::path::Path::new(&format!("{}/stocks.json", app.cfg.data_dir)).exists(),
         "mirror": app.w.lock().unwrap().mirror_user.is_some(), "symbols": app.cfg.symbols}))
 }
 #[derive(Deserialize)] struct VoiceQ { text: String, token: String }
@@ -410,4 +423,20 @@ async fn i_limits(State(app): State<S>, h: HeaderMap, Json(b): Json<LimIn>) -> R
         Ok(l) => { a.limits = l; w.emit(Some(&b.account), "limits", "AI agent tightened your limits.".into(), json!({"limits": l})); ok(json!({"ok": true})) }
         Err(code) => { w.emit(Some(&b.account), "gate_block", format!("AI agent tried to loosen limits: {code}."), json!({"code": code})); Err(err(StatusCode::FORBIDDEN, code)) }
     }
+}
+
+// ---------- iMessage bridge (Photon Spectrum) ----------
+#[derive(Deserialize)] struct LinkIn { code: String, phone: String }
+async fn i_link(State(app): State<S>, h: HeaderMap, Json(b): Json<LinkIn>) -> R {
+    internal(&app, &h)?; let mut w = app.w.lock().unwrap(); let t = now();
+    let u = w.accounts.values().find(|a| a.link_code.as_ref().map_or(false, |(c, exp)| *c == b.code.trim() && *exp > t)).map(|a| a.user.clone())
+        .ok_or(err(StatusCode::NOT_FOUND, "bad or expired code"))?;
+    for a in w.accounts.values_mut() { if a.phone.as_deref() == Some(b.phone.as_str()) { a.phone = None; } } // one phone, one account
+    if let Some(a) = w.accounts.get_mut(&u) { a.phone = Some(b.phone.clone()); a.link_code = None; }
+    w.emit(Some(&u), "status", "iMessage linked: Tripwire will text you when it acts.".into(), json!({"imessage": true}));
+    ok(json!({"user": u}))
+}
+async fn i_phones(State(app): State<S>, h: HeaderMap) -> R {
+    internal(&app, &h)?; let w = app.w.lock().unwrap();
+    ok(json!(w.accounts.values().filter_map(|a| a.phone.as_ref().map(|p| json!({"user": a.user, "phone": p}))).collect::<Vec<_>>()))
 }

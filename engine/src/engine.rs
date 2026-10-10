@@ -226,6 +226,8 @@ pub struct Account {
     pub created: i64, pub status: Status, pub sleeves: BTreeMap<String, Sleeve>, pub trades: Vec<Trade>, pub equity: Vec<(i64, f64)>,
     pub events: VecDeque<Ev>, pub order_times: VecDeque<i64>, pub day: i64, pub day_start_equity: f64, pub mcp_token: String, pub digest: Option<String>,
     #[serde(default)] pub last_block: HashMap<String, (String, i64)>,
+    /// iMessage link (Photon Spectrum): linked phone + pending 4-digit code (code, expires_ts)
+    #[serde(default)] pub phone: Option<String>, #[serde(default)] pub link_code: Option<(String, i64)>,
 }
 impl Account {
     pub fn new(user: &str, profile: &str, cash: f64, goal: f64, months: f64, syms: &[String], now: i64) -> Self {
@@ -233,7 +235,7 @@ impl Account {
         Account { user: user.into(), profile: profile.into(), limits: Limits::profile(profile), start_cash: cash, goal_amount: goal, goal_months: months,
             created: now, status: Status::Active, sleeves: syms.iter().map(|s| (s.clone(), Sleeve { cash: per, ..Default::default() })).collect(),
             trades: vec![], equity: vec![(now, cash)], events: VecDeque::new(), order_times: VecDeque::new(), day: now / 86400, day_start_equity: cash,
-            mcp_token: format!("tw_mcp_{}", uuid::Uuid::new_v4().simple()), digest: None, last_block: HashMap::new() }
+            mcp_token: format!("tw_mcp_{}", uuid::Uuid::new_v4().simple()), digest: None, last_block: HashMap::new(), phone: None, link_code: None }
     }
     pub fn equity(&self, px: &HashMap<String, f64>) -> f64 {
         self.sleeves.iter().map(|(s, sl)| sl.cash + sl.pos.as_ref().map_or(0., |p| p.qty * px.get(s).copied().unwrap_or(p.entry))).sum()

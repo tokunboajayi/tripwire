@@ -27,3 +27,4 @@ data/state.json
 mcp/.cache/
 .solana-keypair.json
 data/audit.json
+imessage/node_modules/

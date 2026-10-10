@@ -110,6 +110,7 @@ function Live({ acct, feed, reasoning, reload, voiceAvail }: any) {
       <button onClick={() => act("flatten")}>Sell everything</button>
       <button className="warn" onClick={() => act("agent-loosen")}>Let AI raise its own risk</button>
       <button className="danger" onClick={() => act("kill")}>Kill switch</button>
+      <TextMe linked={!!acct.imessage} reload={reload} />
     </section>
     <section className="regimes">{regimes.map(r => <div key={r.symbol} className={"card regime" + (sym === r.symbol ? " sel" : "")} onClick={() => setSym(r.symbol)} style={{ borderTopColor: REGIME_COLOR[r.regime] }}>
       <div className="row between"><b>{r.symbol}</b><span>{usd(r.price)}</span></div>
@@ -164,3 +165,12 @@ function Connect({ token }: { token: string }) {
 
 const Kpi = ({ label, value, sub, tone }: any) => <div className="kpi"><span>{label}</span><b className={tone > 0 ? "up" : tone < 0 ? "down" : ""}>{value}</b>{sub && <small>{sub}</small>}</div>;
 const Legend = () => <div className="legend">{Object.entries({ RANGE: "Calm → Mean-Reversion", TREND_UP: "Trending → Trend", HIGH_VOL: "Volatile → Breakout", TREND_DOWN: "Falling → Shield" }).map(([k, v]) => <span key={k}><i style={{ background: REGIME_COLOR[k] }} />{v}</span>)}</div>;
+
+// iMessage (Photon Spectrum): get a 4-digit code, text "link 1234" to the Tripwire number.
+function TextMe({ linked, reload }: { linked: boolean; reload: () => void }) {
+  const [code, setCode] = useState<string | null>(null), [num, setNum] = useState("");
+  useEffect(() => { api("/v1/config").then((c: any) => setNum(c.imessage_number || "")).catch(() => {}); }, []);
+  if (linked) return <span className="chip active" title="Tripwire texts you when it acts. Text 'help' for commands.">iMessage on <button className="link" onClick={() => api("/v1/accounts/me/unlink-phone", "POST").then(reload)}>off</button></span>;
+  if (code) return <small className="textme">Text <b>link {code}</b>{num ? <> to <b>{num}</b></> : null} within 10 min</small>;
+  return <button onClick={() => api("/v1/accounts/me/link-code", "POST").then((r: any) => setCode(r.code))}>Text me</button>;
+}
