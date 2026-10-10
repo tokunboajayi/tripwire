@@ -113,7 +113,7 @@ def main():
     last = {"regime": 0, "thesis": 0, "anchor": 0, "digest": ""}; seen = set()
     while True:
         now = time.time(); et = dt.datetime.now(dt.timezone(dt.timedelta(hours=-4)))
-        jobs = [("regime", int(os.getenv("REGIME_EVERY_S", "900")), R[0]), ("thesis", 60, R[1])]
+        jobs = [("regime", int(os.getenv("REGIME_EVERY_S", "15")), R[0]), ("thesis", 15, R[1])]
         if solana_anchor and os.getenv("SOLANA_ANCHOR", "1") == "1":
             jobs.append(("anchor", int(os.getenv("ANCHOR_EVERY_S", "300")), lambda: solana_anchor.anchor_round(API, H)))
         for name, every, fn in jobs:
