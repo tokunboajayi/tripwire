@@ -1,0 +1,9 @@
+web/** linguist-vendored
+landing/** linguist-vendored
+data/** linguist-vendored
+agents/** linguist-vendored
+deploy/** linguist-vendored
+*.json linguist-vendored
+*.yml linguist-vendored
+*.lock linguist-vendored
+*.md linguist-vendored
