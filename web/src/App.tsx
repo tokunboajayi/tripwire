@@ -47,7 +47,7 @@ function Landing({ auth0, login, dev }: { auth0: boolean; login: () => void; dev
                 <label htmlFor="nm" className="sr">Your name</label>
                 <input id="nm" placeholder="Enter your name to start" autoComplete="given-name" value={n} onChange={e => setN(e.target.value)} />
                 <button className="btn primary lg" disabled={!n.trim()}>Deploy</button></form>}
-          <p className="fine"><Icon n="shield" size={14} /> Paper money only. SOC2 compliance pending.</p>
+          <p className="fine"><Icon n="ok" size={14} /> Paper money only. SOC2 compliance pending.</p>
         </div>
       </section>
 
