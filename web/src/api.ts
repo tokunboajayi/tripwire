@@ -13,7 +13,7 @@ export async function api<T = any>(path: string, method = "GET", body?: any): Pr
 }
 export function stream(onEvent: (kind: string, ev: any) => void) {
   const es = new EventSource(`/v1/stream?token=${encodeURIComponent(token)}`);
-  for (const k of ["order", "gate_block", "regime", "ai_regime", "thesis", "limits", "status", "auto_pause", "digest", "kill", "account", "reasoning", "replay_tick", "replay_order", "replay_done", "mirror"])
+  for (const k of ["order", "gate_block", "regime", "ai_regime", "thesis", "limits", "status", "auto_pause", "digest", "kill", "account", "reasoning", "replay_tick", "replay_order", "replay_done", "mirror", "anchor"])
     es.addEventListener(k, (e: MessageEvent) => onEvent(k, JSON.parse(e.data)));
   return () => es.close();
 }

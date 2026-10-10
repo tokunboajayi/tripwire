@@ -30,8 +30,9 @@ async fn main() {
         web_dir: env("WEB_DIR", "../web/dist"), port: env("PORT", "8080").parse().unwrap_or(8080),
     };
     let (tx, _) = broadcast::channel(1024);
+    let saved_audit: (Vec<Audit>, Vec<Anchor>) = std::fs::read_to_string(format!("{}/audit.json", cfg.data_dir)).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default();
     let accounts: HashMap<String, Account> = std::fs::read_to_string(format!("{}/state.json", cfg.data_dir)).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default();
-    let app: S = Arc::new(App { w: Mutex::new(World { markets: BTreeMap::new(), accounts, replays: HashMap::new(), kill: false, events: VecDeque::new(), next_id: 0, tx, mirror_user: std::env::var("MIRROR_USER").ok().filter(|s| !s.is_empty()), mirror_queue: vec![] }),
+    let app: S = Arc::new(App { w: Mutex::new(World { markets: BTreeMap::new(), accounts, replays: HashMap::new(), kill: false, events: VecDeque::new(), next_id: 0, tx, mirror_user: std::env::var("MIRROR_USER").ok().filter(|s| !s.is_empty()), mirror_queue: vec![], audit: saved_audit.0, anchors: saved_audit.1 }),
         http: reqwest::Client::builder().timeout(Duration::from_secs(20)).build().unwrap(), jwks: OnceCell::new(), cfg });
     for s in app.cfg.symbols.clone() {
         match klines(&app, &s, Some(1622505600000)).await {
@@ -54,7 +55,8 @@ async fn main() {
         .route("/v1/accounts/me/profile", patch(set_profile)).route("/v1/accounts/me/:action", post(account_action))
         .route("/v1/accounts/me/trades", get(trades)).route("/v1/accounts/me/equity", get(equity)).route("/v1/accounts/me/events", get(events))
         .route("/v1/stream", get(stream)).route("/v1/replays", post(start_replay)).route("/v1/replays/me", get(get_replay))
-        .route("/v1/admin/kill-all", post(kill_all)).route("/v1/config", get(config)).route("/v1/voice", get(voice))
+        .route("/v1/admin/kill-all", post(kill_all)).route("/v1/config", get(config)).route("/v1/audit", get(audit_list)).route("/v1/audit/status", get(audit_status))
+        .route("/internal/audit/head", get(i_audit_head)).route("/internal/audit/anchor", post(i_audit_anchor)).route("/v1/voice", get(voice))
         .route("/internal/snapshot", get(i_snapshot)).route("/internal/regime", post(i_regime)).route("/internal/positions", get(i_positions))
         .route("/internal/thesis", post(i_thesis)).route("/internal/exit", post(i_exit)).route("/internal/stream", post(i_stream))
         .route("/internal/accounts", get(i_accounts)).route("/internal/digest", post(i_digest)).route("/internal/limits", post(i_limits))
@@ -88,7 +90,9 @@ async fn live_tick(app: &S) {
             }
         }
     }
-    let (snapshot, mirror) = { let mut w = app.w.lock().unwrap(); w.tick(now()); (serde_json::to_string(&w.accounts).ok(), std::mem::take(&mut w.mirror_queue)) };
+    let (snapshot, audit, mirror) = { let mut w = app.w.lock().unwrap(); w.tick(now());
+        (serde_json::to_string(&w.accounts).ok(), serde_json::to_string(&(&w.audit, &w.anchors)).ok(), std::mem::take(&mut w.mirror_queue)) };
+    if let Some(a) = audit { let _ = std::fs::create_dir_all(&app.cfg.data_dir); let _ = std::fs::write(format!("{}/audit.json", app.cfg.data_dir), a); }
     for (sym, side, qty) in mirror { mirror_order(app, &sym, &side, qty).await; }
     if let Some(s) = snapshot { let _ = std::fs::create_dir_all(&app.cfg.data_dir); let _ = std::fs::write(format!("{}/state.json", app.cfg.data_dir), s); }
 }
@@ -315,6 +319,31 @@ async fn voice(State(app): State<S>, Query(q): Query<VoiceQ>) -> R {
     if !r.status().is_success() { return Err(err(StatusCode::BAD_GATEWAY, "elevenlabs")) }
     let bytes = r.bytes().await.map_err(|e| err(StatusCode::BAD_GATEWAY, &e.to_string()))?;
     Ok(([(axum::http::header::CONTENT_TYPE, "audio/mpeg")], bytes).into_response())
+}
+// ---------- Solana-anchored audit trail ----------
+#[derive(Deserialize)] struct Since { since: Option<u64> }
+async fn audit_list(State(app): State<S>, Query(q): Query<Since>) -> R {
+    let w = app.w.lock().unwrap(); let from = q.since.unwrap_or(0);
+    ok(json!({"genesis": GENESIS, "entries": w.audit.iter().filter(|e| e.seq > from).collect::<Vec<_>>(), "anchors": &w.anchors}))
+}
+async fn audit_status(State(app): State<S>) -> R {
+    let w = app.w.lock().unwrap(); let last = w.anchors.last();
+    ok(json!({"entries": w.audit.len(), "chain_ok": verify_chain(&w.audit).is_ok(), "head": w.audit.last().map(|e| (e.seq, e.hash.clone())),
+        "anchored_seq": last.map(|a| a.seq), "signature": last.map(|a| a.signature.clone()), "cluster": last.map(|a| a.cluster.clone()), "anchored_at": last.map(|a| a.ts),
+        "anchors": w.anchors.len()}))
+}
+async fn i_audit_head(State(app): State<S>, h: HeaderMap) -> R {
+    internal(&app, &h)?; let w = app.w.lock().unwrap();
+    ok(json!({"seq": w.audit.last().map_or(0, |e| e.seq), "hash": w.audit.last().map(|e| e.hash.clone()), "last_anchored_seq": w.anchors.last().map_or(0, |a| a.seq)}))
+}
+#[derive(Deserialize)] struct AnchorIn { seq: u64, hash: String, signature: String, cluster: String }
+async fn i_audit_anchor(State(app): State<S>, h: HeaderMap, Json(b): Json<AnchorIn>) -> R {
+    internal(&app, &h)?; let mut w = app.w.lock().unwrap();
+    if !w.audit.iter().any(|e| e.seq == b.seq && e.hash == b.hash) { return Err(err(StatusCode::BAD_REQUEST, "hash does not match chain")) }
+    w.anchors.push(Anchor { seq: b.seq, hash: b.hash.clone(), signature: b.signature.clone(), cluster: b.cluster.clone(), ts: now() });
+    w.emit(None, "anchor", format!("Audit trail anchored on Solana {}: events 1–{} fingerprint {}… (tx {}…)", b.cluster, b.seq, &b.hash[..12], &b.signature[..12]),
+        json!({"seq": b.seq, "signature": b.signature, "cluster": b.cluster}));
+    ok(json!({"ok": true}))
 }
 async fn get_replay(State(app): State<S>, h: HeaderMap) -> R { let (u, _) = who(&app, &h).await?; let w = app.w.lock().unwrap(); ok(json!(w.replays.get(&u))) }
 

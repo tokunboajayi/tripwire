@@ -6,6 +6,10 @@ import httpx
 from pydantic import BaseModel, Field
 from prompts import REGIME, THESIS, VERDICT, DIGEST
 import narrator
+try:
+    import solana_anchor
+except Exception as e:  # solders missing → anchoring off, everything else runs
+    solana_anchor = None; print('Solana anchoring off:', e)
 
 API = os.getenv("TRIPWIRE_API", "http://localhost:8080")
 H = {"x-internal-token": os.getenv("INTERNAL_TOKEN", "change-me")}
@@ -106,10 +110,13 @@ def digest_round_rules():
 def main():
     print("Agents: Claude" if llm else "Agents: rule-based mode (no ANTHROPIC_API_KEY). Add a key to .env to switch to Claude.")
     R = (regime_round, lambda: thesis_round(seen), digest_round) if llm else (regime_round_rules, lambda: thesis_round_rules(seen), digest_round_rules)
-    last = {"regime": 0, "thesis": 0, "digest": ""}; seen = set()
+    last = {"regime": 0, "thesis": 0, "anchor": 0, "digest": ""}; seen = set()
     while True:
         now = time.time(); et = dt.datetime.now(dt.timezone(dt.timedelta(hours=-4)))
-        for name, every, fn in [("regime", int(os.getenv("REGIME_EVERY_S", "900")), R[0]), ("thesis", 60, R[1])]:
+        jobs = [("regime", int(os.getenv("REGIME_EVERY_S", "900")), R[0]), ("thesis", 60, R[1])]
+        if solana_anchor and os.getenv("SOLANA_ANCHOR", "1") == "1":
+            jobs.append(("anchor", int(os.getenv("ANCHOR_EVERY_S", "300")), lambda: solana_anchor.anchor_round(API, H)))
+        for name, every, fn in jobs:
             if now - last[name] >= every:
                 last[name] = now
                 try: fn()

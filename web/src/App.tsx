@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
 import { api, stream, setToken, getToken, PROFILES, REGIME_COLOR, usd, speak, setVoice } from "./api";
 import { RegimeChart, Lines } from "./Charts";
+import { AuditBadge, VerifyPanel } from "./Audit";
 
 export default function App({ auth0 }: { auth0: boolean }) {
   const a = auth0 ? useAuth0() : null;
@@ -51,7 +52,8 @@ function Home({ logout }: { logout: () => void }) {
   return <div className="app">
     <header>
       <div className="brand">TRIPWIRE</div>
-      <nav>{[["live", "Live"], ["proof", "Replay & Backtest"], ["connect", "Talk to Claude"]].map(([k, l]) => <button key={k} className={tab === k ? "on" : ""} onClick={() => setTab(k)}>{l}</button>)}</nav>
+      <nav>{[["live", "Live"], ["proof", "Proof"], ["connect", "Talk to Claude"]].map(([k, l]) => <button key={k} className={tab === k ? "on" : ""} onClick={() => setTab(k)}>{l}</button>)}</nav>
+      <AuditBadge />
       {cfg.voice && <button className={voice ? "on" : ""} onClick={() => { setVoice(!voice); setV(!voice); }}>{voice ? "🔊 Voice on" : "🔈 Voice alerts"}</button>}
       <button className="ghost" onClick={logout}>Sign out</button>
     </header>
@@ -137,6 +139,7 @@ function Proof({ replay, start, stocks }: { replay: any[]; start: (d: string) =>
   const last = replay[replay.length - 1];
   const pctSeries = (k: string) => replay.map(r => [r.t, (r[k] / 10000 - 1) * 100] as [number, number]);
   return <div className="proof">
+    <VerifyPanel />
     <section className="card"><div className="row between"><h3>Replay: watch it trade real history, day by day</h3><div className="row"><button className="primary" onClick={() => start("crypto")}>▶ Crypto 2025 → today</button>{stocks && <button onClick={() => start("stocks")}>▶ Stocks 2024 → today</button>}</div></div>
       {last && <p><b>Tripwire {((last.equity / 10000 - 1) * 100).toFixed(1)}%</b> vs buy & hold {((last.buy_hold / 10000 - 1) * 100).toFixed(1)}% · {new Date(last.t * 1000).toLocaleDateString()}</p>}
       <Lines pct series={[{ name: "Tripwire", color: "#2bb673", points: pctSeries("equity") }, { name: "buy & hold", color: "#9aa0a6", points: pctSeries("buy_hold") }]} />

@@ -25,3 +25,5 @@ desktop.ini
 .idea/
 data/state.json
 mcp/.cache/
+.solana-keypair.json
+data/audit.json
