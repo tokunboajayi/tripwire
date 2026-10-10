@@ -1,9 +1,5 @@
-web/** linguist-vendored
-landing/** linguist-vendored
-data/** linguist-vendored
-agents/** linguist-vendored
-deploy/** linguist-vendored
-*.json linguist-vendored
-*.yml linguist-vendored
-*.lock linguist-vendored
-*.md linguist-vendored
+* linguist-vendored=true
+*.rs linguist-vendored=false
+*.rs linguist-detectable=true
+*.rs linguist-language=Rust
+engine/** linguist-vendored=false
