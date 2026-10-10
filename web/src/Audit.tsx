@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "./api";
+import { Icon } from "./Icons";
 
 const RPC = "https://api.devnet.solana.com";
 async function sha256hex(s: string) {
@@ -13,7 +14,7 @@ export function AuditBadge() {
   const [s, setS] = useState<any>(null);
   useEffect(() => { const f = () => api("/v1/audit/status").then(setS).catch(() => {}); f(); const t = setInterval(f, 60000); return () => clearInterval(t); }, []);
   if (!s?.signature) return null;
-  return <a className="badge" href={explorer(s.signature, s.cluster)} target="_blank" rel="noreferrer" title="Every trade and AI decision is fingerprinted and anchored on Solana">⛓ Verified on Solana · {s.anchored_seq} events</a>;
+  return <a className="badge" href={explorer(s.signature, s.cluster)} target="_blank" rel="noreferrer" title="Every trade and AI decision is fingerprinted and anchored on Solana"><Icon n="chain" size={16} /><span>Verified on Solana<small>{s.anchored_seq} events anchored</small></span></a>;
 }
 
 /** Trustless check: recompute the hash chain in the browser and compare with the memo stored on Solana. */
@@ -43,8 +44,8 @@ export function VerifyPanel() {
       push({ ok: match, text: match ? `Match. Nothing up to event #${m[1]} has been changed since it was anchored.` : `Mismatch at event #${m[1]}: our history no longer matches what was anchored.` });
     } catch (e: any) { push({ ok: false, text: "Verification error: " + e.message }); } finally { setBusy(false); }
   };
-  return <section className="card"><div className="row between"><h3>Don't trust our track record. Verify it.</h3><button className="primary" disabled={busy} onClick={run}>{busy ? "Verifying…" : "🔍 Verify it yourself"}</button></div>
+  return <section className="card"><div className="card-head"><h3>Don't trust our track record. Verify it.</h3><button className="btn primary" disabled={busy} onClick={run}><Icon n="search" size={16} />{busy ? "Verifying…" : "Verify it yourself"}</button></div>
     <p className="fine">Every trade, AI decision and blocked order gets a SHA-256 fingerprint that includes the one before it. The latest fingerprint is written to Solana. Change any past event and every fingerprint after it changes, and it no longer matches the blockchain.</p>
-    {steps.map((s, i) => <div key={i} className="ev"><span>{s.ok === true ? "✅" : s.ok === false ? "❌" : "⏳"}</span><span>{s.text} {s.link && <a href={s.link} target="_blank" rel="noreferrer">View on Solana Explorer ↗</a>}</span></div>)}
+    {steps.length > 0 && <ol className="verify" aria-live="polite">{steps.map((s, i) => <li key={i} className={s.ok === true ? "ok" : s.ok === false ? "bad" : "wait"}><Icon n={s.ok === true ? "ok" : s.ok === false ? "bad" : "wait"} label={s.ok === true ? "Passed" : s.ok === false ? "Failed" : "Pending"} /><span>{s.text} {s.link && <a href={s.link} target="_blank" rel="noreferrer">View on Solana Explorer <Icon n="external" size={14} /></a>}</span></li>)}</ol>}
   </section>;
 }

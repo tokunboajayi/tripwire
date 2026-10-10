@@ -2,9 +2,10 @@ import { useEffect, useRef } from "react";
 import { createChart, ColorType, IChartApi } from "lightweight-charts";
 import { REGIME_COLOR } from "./api";
 
-const base = (el: HTMLElement, h: number) => createChart(el, {
-  height: h, layout: { background: { type: ColorType.Solid, color: "transparent" }, textColor: "#9aa3b2", fontFamily: "Inter" },
-  grid: { vertLines: { visible: false }, horzLines: { color: "rgba(140,150,170,.12)" } }, rightPriceScale: { borderVisible: false },
+const font = () => getComputedStyle(document.documentElement).getPropertyValue("--font").trim() || "system-ui";
+const base = (el: HTMLElement, _h: number) => createChart(el, {
+  layout: { background: { type: ColorType.Solid, color: "transparent" }, textColor: "#94a3b8", fontFamily: font() },
+  grid: { vertLines: { visible: false }, horzLines: { color: "rgba(148,163,184,.10)" } }, rightPriceScale: { borderVisible: false },
   timeScale: { borderVisible: false }, crosshair: { mode: 0 }, autoSize: true, localization: { locale: "en-US" },
 });
 
@@ -17,12 +18,12 @@ export function RegimeChart({ data }: { data: any[] }) {
     const bg = c.addHistogramSeries({ priceScaleId: "bg", lastValueVisible: false, priceLineVisible: false });
     c.priceScale("bg").applyOptions({ scaleMargins: { top: 0, bottom: 0 }, visible: false });
     bg.setData(data.map(d => ({ time: d.t, value: 1, color: d.regime ? REGIME_COLOR[d.regime] + "2e" : "rgba(0,0,0,0)" })));
-    const s = c.addCandlestickSeries({ upColor: "#2bb673", downColor: "#e5484d", wickUpColor: "#2bb673", wickDownColor: "#e5484d", borderVisible: false });
+    const s = c.addCandlestickSeries({ upColor: "#22c55e", downColor: "#ef4444", wickUpColor: "#22c55e", wickDownColor: "#ef4444", borderVisible: false });
     s.setData(data.map(d => ({ time: d.t, open: d.o, high: d.h, low: d.l, close: d.c })));
     c.timeScale().fitContent();
     return () => c.remove();
   }, [data]);
-  return <div ref={el} className="chart" />;
+  return <div ref={el} className="chart" role="img" aria-label="Daily price chart, background shaded by market regime" />;
 }
 
 /** Multi-line chart: series = {name, color, points:[[t,v],...]} */
@@ -39,5 +40,5 @@ export function Lines({ series, height = 260, pct = false }: { series: { name: s
     c.timeScale().fitContent();
     return () => { c.remove(); chart.current = undefined; };
   }, [JSON.stringify(series.map(s => s.points.length)), series.length]);
-  return <div ref={el} className="chart" style={{ height }} />;
+  return <div ref={el} className="chart lines" style={{ height }} role="img" aria-label={"Line chart: " + series.map(s => s.name).join(", ")} />;
 }

@@ -22,7 +22,7 @@ export const PROFILES = {
   balanced: { risk: "2%", maxpos: "75%", vol: "40%", loss: "4%" },
   aggressive: { risk: "3%", maxpos: "100%", vol: "60%", loss: "6%" },
 };
-export const REGIME_COLOR: Record<string, string> = { RANGE: "#4c8bf5", TREND_UP: "#2bb673", HIGH_VOL: "#f29d38", TREND_DOWN: "#8a8f98" };
+export const REGIME_COLOR: Record<string, string> = { RANGE: "#60a5fa", TREND_UP: "#22c55e", HIGH_VOL: "#f59e0b", TREND_DOWN: "#94a3b8" };
 export const usd = (n: number) => (n < 0 ? "-$" : "$") + Math.abs(n).toLocaleString(undefined, { maximumFractionDigits: 2, minimumFractionDigits: 2 });
 
 let voiceOn = false;

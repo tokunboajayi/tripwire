@@ -1,0 +1,20 @@
+{
+  "name": "Tripwire: AI investing you can verify",
+  "short_name": "Tripwire",
+  "description": "Set your risk. AI trades. Rust keeps it safe.",
+  "start_url": "/#overview",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
+  "background_color": "#05070d",
+  "theme_color": "#05070d",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icon-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Why-log", "url": "/#activity" },
+    { "name": "Verify on Solana", "url": "/#proof" }
+  ]
+}
