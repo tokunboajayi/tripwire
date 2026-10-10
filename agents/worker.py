@@ -1,5 +1,6 @@
 """Tripwire AI agents: Regime Agent (Sonnet), Thesis Agent (Haiku), daily digest.
 The engine never waits on these. If anything fails, Rust keeps trading on its deterministic regime."""
+import envload  # noqa: F401  (loads ../.env)
 import os, json, re, time, hashlib, pathlib, datetime as dt
 import httpx
 from pydantic import BaseModel, Field

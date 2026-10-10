@@ -20,6 +20,8 @@ fn ok(v: Value) -> R { Ok(Json(v).into_response()) }
 
 #[tokio::main]
 async fn main() {
+    // Load .env from the repo root (or current dir). Real environment variables win.
+    let _ = dotenvy::from_filename("../.env").or_else(|_| dotenvy::dotenv());
     let cfg = Cfg {
         symbols: env("SYMBOLS", "BTC,ETH,SOL").split(',').map(|s| s.trim().split('/').next().unwrap().to_uppercase()).collect(),
         dev: env("DEV", "0") == "1", internal_token: env("INTERNAL_TOKEN", "change-me"),

@@ -39,7 +39,7 @@ Small sample (98 trades). It lags in strong bull runs; it's built to protect. De
 
 ## Run it locally (2 terminals)
 ```bash
-cp .env.example .env                       # DEV=1 works with no keys at all
+cp .env.example .env                       # engine, agents and MCP all read this file; DEV=1 works with no keys
 cd web && npm install && npm run build     # dashboard
 cd ../engine && DEV=1 DATA_DIR=../data cargo run --release   # http://localhost:8080
 # AI agents: cd agents && pip install -r requirements.txt && python worker.py   (no key = rule-based mode; ANTHROPIC_API_KEY in .env = Claude)

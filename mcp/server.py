@@ -1,5 +1,6 @@
 """Tripwire MCP server: 'talk to your portfolio' from Claude. Read-only by design (no order tools).
 Env: TRIPWIRE_API (default http://localhost:8080), TRIPWIRE_MCP_TOKEN (from the dashboard Settings)."""
+import envload  # noqa: F401  (loads ../.env)
 import os, httpx
 from mcp.server.fastmcp import FastMCP
 
