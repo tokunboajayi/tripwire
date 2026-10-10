@@ -22,10 +22,11 @@ class Verdict(BaseModel): verdict: str; confidence: float = Field(ge=0, le=1); e
 
 def last_json(text: str) -> dict: return json.loads(re.findall(r"\{.*\}", text, re.S)[-1])
 
-def ask(model: str, prompt: str, max_tokens=400) -> str:
+def ask(model: str, prompt: str, max_tokens=2000) -> str:
     key = CACHE / hashlib.sha256((model + prompt).encode()).hexdigest()
     if key.exists(): return key.read_text()
-    out = llm.messages.create(model=model, max_tokens=max_tokens, messages=[{"role": "user", "content": prompt}]).content[0].text
+    resp = llm.messages.create(model=model, max_tokens=max_tokens, messages=[{"role": "user", "content": prompt}])
+    out = "".join(b.text for b in resp.content if getattr(b, "type", "") == "text")  # skip thinking blocks
     key.write_text(out); return out
 
 def news(symbols: list[str]) -> list[dict]:
@@ -44,7 +45,7 @@ def regime_round():
         hl = [n["headline"] for n in heads if m["symbol"] in n["symbols"]][:5] or ["(none)"]
         prompt = REGIME.format(det=m["deterministic"], symbol=m["symbol"], snapshot=json.dumps({"price": m["price"], **m["indicators"]}), headlines=hl)
         text = ""
-        with llm.messages.stream(model=SONNET, max_tokens=500, messages=[{"role": "user", "content": prompt}]) as s:
+        with llm.messages.stream(model=SONNET, max_tokens=2000, messages=[{"role": "user", "content": prompt}]) as s:
             buf = ""
             for tok in s.text_stream:
                 text += tok; buf += tok
