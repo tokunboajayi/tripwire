@@ -2,7 +2,7 @@
 
 > **Status Oct 9, 22:45:** every prompt is built and tested, plus stock replay (B3/B4), Alpaca paper mirror (B5), ElevenLabs voice alerts, and the rule-based agent mode. Docker image verified.
 > Needs real keys to finish: Auth0 tenant (A7/D6), `python data/fetch_stocks.py` (Alpaca), a live Claude run, an ElevenLabs key, then deploy to Vultr.
-> Use the prompts below to *extend* the code, e.g. `Read engine/src/engine.rs. Add <feature> per BUILD_SPEC §x. Minimal diff.`
+> Use the prompts below to *extend* the code, e.g. `Read engine/src/<module>.rs. Add <feature> per BUILD_SPEC §x. Minimal diff.` (modules follow §2: indicators, regime, brains, risk, ledger, scheduler, routes/…)
 
 ## Rules
 - One prompt = one milestone. Commit after each.

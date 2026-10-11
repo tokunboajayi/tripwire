@@ -39,13 +39,27 @@ Small sample (98 trades). It lags in strong bull runs; it's built to protect. De
 | `web/` `landing/` | dashboard + public site | D · Product |
 | `docs/` | idea, spec, plan, prompts | everyone |
 
+### Engine modules (`engine/src/`, spec §2)
+| Layer | Module | Job |
+|---|---|---|
+| Data | `market.rs` · `indicators.rs` | daily candles (live, offline fallback) · ATR/EMA/SMA/ADX/RSI2/Donchian/vol, parity-tested vs Python |
+| Brain | `regime.rs` · `brains.rs` | deterministic regime + AI acceptance (`REGIME_MISMATCH`) · entries, exits, sizing, the one-line why |
+| Safety | `risk.rs` | pure risk gate, every code unit-tested; agents can tighten limits, never loosen |
+| Money | `ledger.rs` · `executor.rs` | accounts, positions, round trips · Alpaca paper mirror |
+| Loop | `scheduler.rs` · `replay.rs` | 60s live tick · same brains on history, no look-ahead |
+| API | `routes/` · `sse.rs` · `auth.rs` | spec §9 endpoints · live stream · Auth0 / MCP / internal tokens |
+| Trust | `audit.rs` | SHA-256 hash chain anchored on Solana |
+
+### Web (`web/src/`, spec §10)
+`/` landing · `/onboard` risk slider → goal → fund · `/app` dashboard · `/replay` · `/backtest` · `/settings` (MCP, voice, iMessage, audit).
+
 ## Run it locally (2 terminals)
 ```bash
 cp .env.example .env                       # engine, agents and MCP all read this file; DEV=1 works with no keys
 cd web && npm install && npm run build     # dashboard
 cd ../engine && DEV=1 DATA_DIR=../data cargo run --release   # http://localhost:8080
 # AI agents: cd agents && pip install -r requirements.txt && python worker.py   (no key = rule-based mode; ANTHROPIC_API_KEY in .env = Claude)
-# optional: MCP for Claude Desktop               cd mcp && pip install -r requirements.txt  (config on the "Talk to Claude" tab)
+# optional: MCP for Claude Desktop               cd mcp && pip install -r requirements.txt  (config on the Settings page)
 ```
 Stock replay data (needs Alpaca keys): `python data/fetch_stocks.py`.
 Tests: `cd engine && cargo test` (risk-gate codes, tighten-only limits, AI override, **Rust-vs-Python parity** on 1,700 days of BTC).

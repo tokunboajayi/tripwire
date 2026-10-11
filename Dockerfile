@@ -18,6 +18,7 @@ WORKDIR /app
 COPY --from=engine /engine/target/release/tripwire-engine /app/tripwire-engine
 COPY --from=web /web/dist /app/web
 COPY data/backtest.json /app/seed/backtest.json
-ENV WEB_DIR=/app/web DATA_DIR=/data PORT=8080
+COPY backtest/fixtures /app/fixtures
+ENV WEB_DIR=/app/web DATA_DIR=/data PORT=8080 OFFLINE_FIXTURES=/app/fixtures
 EXPOSE 8080
 CMD ["sh", "-c", "mkdir -p /data && cp -n /app/seed/backtest.json /data/ 2>/dev/null; exec /app/tripwire-engine"]

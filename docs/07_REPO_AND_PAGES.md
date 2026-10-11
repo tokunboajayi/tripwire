@@ -1,10 +1,9 @@
 # 07 · GitHub Repo, README, Team & Landing Page
 
 ## Repo setup (AJ's computer = head of uploads)
-1. Open `setup_repo.ps1`, put teammates' GitHub usernames in `$Collaborators`.
-2. Double-click `SETUP_REPO.bat`. It installs Git + GitHub CLI if missing, logs you in, copies the folder to `%USERPROFILE%\dev\tripwire` (git + OneDrive = corruption risk), creates the GitHub repo, pushes, invites teammates, protects `main`, enables Pages.
-3. Teammates accept the invite, clone, and follow `CONTRIBUTING.md`.
-4. Fill teammate handles in `.github/CODEOWNERS` and the README team table (first PR).
+1. One-time setup is done: the repo exists, teammates are invited, `main` is protected. (The `setup_repo.ps1` / `SETUP_REPO.bat` bootstrap scripts were removed after use.)
+2. Teammates accept the invite, clone, and follow `CONTRIBUTING.md`.
+3. Fill teammate handles in `.github/CODEOWNERS` and the README team table (first PR).
 
 ## Upload flow (see CONTRIBUTING.md)
 - Teammates: branch `<seat>/<task>` → push → Pull Request.

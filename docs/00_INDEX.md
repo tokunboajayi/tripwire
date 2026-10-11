@@ -16,7 +16,7 @@ Hacklanta '26 · Fintech track · team of 4 · paper trading on live crypto.
 | — | `../backtest/` | Working Python backtest, results, charts | B |
 
 ## Kick off (first 30 minutes)
-1. AJ: edit teammates into `setup_repo.ps1` → double-click `SETUP_REPO.bat` (creates GitHub repo, invites team).
+1. Done: GitHub repo created and team invited (the one-time setup scripts were removed after use).
 2. Everyone: accept invite, clone, read `CONTRIBUTING.md`, copy `.env.example` → `.env` (AJ DMs keys).
 3. Seats: Owner = Engine · B = Data & Strategy · C = AI & MCP · D = Product (04).
 4. Each seat opens Claude Code → **P0**, then their first prompt (05).

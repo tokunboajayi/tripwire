@@ -1,6 +1,10 @@
 # Domain comes from DOMAIN= in .env (no file edit needed).
 # Run: docker compose --env-file .env -f deploy/docker-compose.yml --profile https up -d
 {$DOMAIN:localhost}, www.{$DOMAIN:localhost} {
+	# agent → engine routes never leave the docker network
+	@internal path /internal/*
+	respond @internal 404
+
 	reverse_proxy engine:8080 {
 		flush_interval -1
 	}

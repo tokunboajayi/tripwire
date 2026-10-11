@@ -20,7 +20,7 @@ TradingView Desktop is an Electron app. Started with `--remote-debugging-port=92
 
 ## Regime → brain
 
-The same rules as the Rust engine (`engine/src/engine.rs` on `engine/v1-platform`), checked in that order on daily bars:
+The same rules as the Rust engine (`engine/src/regime.rs` + `engine/src/brains.rs`), checked in that order on daily bars:
 
 | Regime | Rule | Brain |
 |---|---|---|

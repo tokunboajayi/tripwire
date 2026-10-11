@@ -1,5 +1,9 @@
-* linguist-vendored=true
-*.rs linguist-vendored=false
-*.rs linguist-detectable=true
-*.rs linguist-language=Rust
-engine/** linguist-vendored=false
+# Honest language stats: count real source, skip docs, data and lockfiles.
+docs/** linguist-documentation
+*.md linguist-documentation
+backtest/*.csv linguist-generated
+backtest/fixtures/** linguist-generated
+data/*.json linguist-generated
+web/package-lock.json linguist-generated
+imessage/bun.lock linguist-generated
+engine/Cargo.lock linguist-generated
