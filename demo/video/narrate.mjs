@@ -4,7 +4,7 @@ import { execFileSync } from "node:child_process";
 import { mkdirSync, writeFileSync, existsSync, readFileSync, rmSync } from "node:fs";
 import { SCENES } from "./script.mjs";
 
-const KEY = process.env.ELEVENLABS_API_KEY, VOICE = process.env.ELEVENLABS_VOICE || "21m00Tcm4TlvDq8ikWAM";
+const KEY = process.env.ELEVENLABS_API_KEY, VOICE = process.env.ELEVENLABS_VOICE || "EXAVITQu4vr4xnSDxMaL";
 const MODEL = process.env.ELEVENLABS_MODEL || "eleven_multilingual_v2"; // best quality for a recorded video
 mkdirSync("out/audio", { recursive: true });
 const timing = {};
