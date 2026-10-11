@@ -26,20 +26,34 @@ export default function App({ auth0 }: { auth0: boolean }) {
       a.getAccessTokenSilently().then((t) => { setToken(t); setSignedIn(true); setAuthErr(""); })
         .catch((e) => setAuthErr(e?.message || "Sign-in failed"));
     }
-    else if (!auth0) {
-      const n = localStorage.getItem("vt_user");
-      if (n) { setToken("dev:" + n); setSignedIn(true); }
-    }
   }, [a?.isAuthenticated]);
+
+  // name sign-in (no Auth0): what the engine accepts decides the token kind
+  const [pub, setPub] = useState<any>(null);
+  useEffect(() => { if (!auth0) api("/v1/config").then(setPub).catch(() => setPub({})); }, []);
+  // DEV=1 (local) keeps plain dev names; a public engine gets guest ids with a per-browser secret
+  const devNames = !!pub?.dev || pub?.guest === false;
+  const nameToken = (id: string) => (devNames ? "dev:" : "guest:") + id;
+  useEffect(() => {
+    if (auth0 || !pub) return;
+    const n = localStorage.getItem("vt_user");
+    if (!n) return;
+    const id = devNames ? n : GUEST_ID.test(n) ? n : guestFor(n); // old name-only ids never worked on a public engine
+    localStorage.setItem("vt_user", id); setToken(nameToken(id)); setSignedIn(true);
+  }, [pub]);
+  const nameLogin = (name: string) => { const id = devNames ? name : guestFor(name); localStorage.setItem("vt_user", id); setToken(nameToken(id)); setSignedIn(true); };
 
   const logout = () => { localStorage.removeItem("vt_user"); setToken(""); setSignedIn(false); navigate("/", true); a?.logout({ logoutParams: { returnTo: location.origin } }); };
 
+  // still finding out who you are (Auth0 loading, engine config pending, or a saved name login about to be restored)
+  const deciding = !signedIn && (a?.isLoading || a?.isAuthenticated || (!auth0 && (!pub || !!localStorage.getItem("vt_user"))));
+  useEffect(() => { if (!signedIn && !deciding && path !== "/" && path !== "/backtest") navigate("/", true); }, [signedIn, deciding, path]);
+
   if (!signedIn) {
     if (path === "/backtest") return <PublicShell><Backtest /></PublicShell>;
-    if (path !== "/") navigate("/", true);
     if (authErr) return <Problem title="Couldn't finish signing in" detail={authErr} action="Sign in again" onAction={() => a?.loginWithRedirect()} />;
-    if (a?.isLoading || a?.isAuthenticated) return <Splash />;
-    return <Landing auth0={auth0} login={() => a?.loginWithRedirect()} devLogin={(n) => { localStorage.setItem("vt_user", n); setToken("dev:" + n); setSignedIn(true); }} />;
+    if (deciding || path !== "/") return <Splash />;
+    return <Landing auth0={auth0} signin={auth0 ? "auth0" : pub?.signin ?? "name"} login={() => a?.loginWithRedirect()} devLogin={nameLogin} />;
   }
   return <SignedIn path={path} logout={logout} />;
 }
@@ -172,6 +186,21 @@ function SignedIn({ path, logout }: { path: Route; logout: () => void }) {
       </nav>
     </div>
   );
+}
+
+const GUEST_ID = /^[^|.]+\.[0-9a-f]{16,64}$/;
+/** Guest id for a typed name: `<name>.<16 hex>`. The random key is this browser's secret, so nobody can sign in as you
+ *  by typing your name. Keys are remembered per name (and survive Sign out), so the same name here returns your portfolio. */
+function guestFor(typed: string) {
+  const name = typed.replace(/[|.]/g, " ").replace(/\s+/g, " ").trim().slice(0, 40) || "guest";
+  let keys: Record<string, string> = {};
+  try { keys = JSON.parse(localStorage.getItem("vt_guest_keys") || "{}"); } catch {}
+  const k = name.toLowerCase();
+  if (!/^[0-9a-f]{16}$/.test(keys[k] ?? "")) {
+    keys[k] = Array.from(crypto.getRandomValues(new Uint8Array(8)), (b) => b.toString(16).padStart(2, "0")).join("");
+    localStorage.setItem("vt_guest_keys", JSON.stringify(keys));
+  }
+  return `${name}.${keys[k]}`;
 }
 
 function PublicShell({ children }: { children: ReactNode }) {

@@ -26,10 +26,35 @@ impl Limits {
 
 pub const PROFILES: [&str; 3] = ["conservative", "balanced", "aggressive"];
 
-/// Agents may only tighten limits; users may set anything up to the aggressive profile.
+/// Users may set anything up to the aggressive profile.
 pub fn set_limits(cur: &Limits, req: &Limits, agent: bool) -> Result<Limits, &'static str> {
     let cap = if agent { *cur } else { Limits::profile("aggressive") };
     if req.vals().iter().zip(cap.vals()).any(|(r, c)| *r > c + 1e-12 || *r < 0.) { Err("LIMIT_LOOSEN_DENIED") } else { Ok(*req) }
+}
+
+/// Recent track record an agent must show before it may raise risk.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct Record { pub closed: usize, pub wins: usize, pub pnl_today: f64 }
+impl Record {
+    pub const MIN_TRADES: usize = 3;
+    pub const MIN_WIN_RATE: f64 = 0.55;
+    pub fn earned(&self) -> bool {
+        self.closed >= Self::MIN_TRADES && self.wins as f64 / self.closed as f64 >= Self::MIN_WIN_RATE && self.pnl_today >= 0.
+    }
+}
+/// Largest raise per request, as a fraction of the current value.
+pub const MAX_RAISE_STEP: f64 = 0.25;
+
+/// Agents: tighten freely; raise only below the user's ceiling, only when earned, and only a step at a time.
+/// The ceiling (the profile the user chose) is the wire: no track record lets an agent cross it.
+pub fn agent_limits(cur: &Limits, req: &Limits, ceiling: &Limits, rec: &Record) -> Result<Limits, &'static str> {
+    let (r, c, cap) = (req.vals(), cur.vals(), ceiling.vals());
+    if r.iter().zip(cap).any(|(r, cap)| *r > cap + 1e-12 || *r < 0.) { return Err("LIMIT_LOOSEN_DENIED") }
+    if r.iter().zip(c).any(|(r, c)| *r > c + 1e-12) {
+        if r.iter().zip(c).any(|(r, c)| *r > c * (1. + MAX_RAISE_STEP) + 1e-12) { return Err("RISK_STEP_TOO_BIG") }
+        if !rec.earned() { return Err("RISK_NOT_EARNED") }
+    }
+    Ok(*req)
 }
 
 pub struct GateIn {
@@ -94,5 +119,24 @@ mod tests {
         req.risk = 0.005;
         assert!(set_limits(&cur, &req, true).is_ok());
         assert!(set_limits(&cur, &Limits::profile("aggressive"), false).is_ok());
+    }
+
+    #[test]
+    fn agent_earns_risk_back_up_to_the_ceiling_only() {
+        let ceiling = Limits::profile("balanced");
+        let mut cur = ceiling; cur.risk = 0.016; // tightened earlier
+        let winning = Record { closed: 6, wins: 4, pnl_today: 12. };
+        let mut req = cur; req.risk = 0.02;
+        assert_eq!(agent_limits(&cur, &req, &ceiling, &winning), Ok(req));                         // +25%, earned, at ceiling
+        assert_eq!(agent_limits(&cur, &req, &ceiling, &Record { closed: 2, wins: 2, pnl_today: 5. }), Err("RISK_NOT_EARNED")); // too few trades
+        assert_eq!(agent_limits(&cur, &req, &ceiling, &Record { closed: 6, wins: 3, pnl_today: 5. }), Err("RISK_NOT_EARNED")); // 50% wins
+        assert_eq!(agent_limits(&cur, &req, &ceiling, &Record { closed: 6, wins: 5, pnl_today: -1. }), Err("RISK_NOT_EARNED")); // losing today
+        let mut big = cur; big.risk = 0.0201;
+        assert_eq!(agent_limits(&cur, &big, &ceiling, &winning), Err("LIMIT_LOOSEN_DENIED"));       // above the ceiling, however good
+        let mut lo = Limits::profile("conservative"); lo.risk = 0.005;
+        let mut jump = lo; jump.risk = 0.009;
+        assert_eq!(agent_limits(&lo, &jump, &ceiling, &winning), Err("RISK_STEP_TOO_BIG"));       // +80% in one go
+        let mut tighter = cur; tighter.risk = 0.01;
+        assert_eq!(agent_limits(&cur, &tighter, &ceiling, &Record::default()), Ok(tighter));      // tightening needs no record
     }
 }

@@ -52,6 +52,12 @@ impl Account {
         }
     }
 
+    /// Track record an AI agent is judged on before it may raise risk: trades closed in the last 30 days, and today's P&L.
+    pub fn record(&self, px: &HashMap<String, f64>, now: i64) -> crate::risk::Record {
+        let recent: Vec<&Trade> = self.trades.iter().filter(|t| t.closed >= now - 30 * 86400).collect();
+        crate::risk::Record { closed: recent.len(), wins: recent.iter().filter(|t| t.pnl > 0.).count(), pnl_today: self.equity(px) - self.day_start_equity }
+    }
+
     pub fn equity(&self, px: &HashMap<String, f64>) -> f64 {
         self.sleeves.iter().map(|(s, sl)| sl.cash + sl.pos.as_ref().map_or(0., |p| p.qty * px.get(s).copied().unwrap_or(p.entry))).sum()
     }

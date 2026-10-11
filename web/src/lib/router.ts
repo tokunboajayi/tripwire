@@ -16,6 +16,7 @@ export function usePath(): Route {
   const [p, setP] = useState(current);
   useEffect(() => {
     const f = () => setP(current());
+    f(); // catch a navigate() that ran before this listener existed
     addEventListener("popstate", f);
     return () => removeEventListener("popstate", f);
   }, []);

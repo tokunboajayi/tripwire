@@ -2,7 +2,8 @@ use crate::auth::{err, user_from_token, who, writer};
 use crate::config::env_or;
 use crate::ledger::{close_pos, Account, SLIP};
 use crate::replay::{self, load_stocks};
-use crate::risk::{set_limits, Limits, Status, PROFILES};
+use crate::risk::{agent_limits, set_limits, Limits, Status, MAX_RAISE_STEP, PROFILES};
+use super::internal;
 use crate::state::{Ev, Replay, World};
 use crate::{now, ok, R, S};
 use axum::extract::{Path, Query, State};
@@ -150,16 +151,17 @@ pub async fn action(State(app): State<S>, h: HeaderMap, Path(action): Path<Strin
             }
         }
         "agent-loosen" => {
-            // Demo: an AI agent asks for double risk after a loss. Rust refuses.
-            let mut req = a.limits;
-            req.risk *= 2.;
-            req.maxpos = (req.maxpos * 1.5).min(1.);
+            // The AI asks for one +25% step of risk. Rust decides: never above your ceiling, only when its record earns it.
+            let (cur, ceiling, rec) = (a.limits, Limits::profile(&a.profile), a.record(&px, now()));
+            let mut req = cur;
+            req.risk = (cur.risk * (1. + MAX_RAISE_STEP)).min(ceiling.risk);
+            if req.risk <= cur.risk + 1e-12 { req.risk = cur.risk * (1. + MAX_RAISE_STEP) } // already at the ceiling: ask anyway, Rust refuses
             let t0 = std::time::Instant::now();
-            let r = set_limits(&a.limits, &req, true);
+            let r = agent_limits(&cur, &req, &ceiling, &rec);
             let ns = t0.elapsed().as_nanos() as u64;
-            if let Err(code) = r {
-                evs.push(("gate_block", format!("AI agent asked to double its risk after a loss. Blocked: {code}. Agents can tighten limits, never loosen them."),
-                    json!({"code": code, "latency_ns": ns})));
+            match r {
+                Ok(l) => { a.limits = l; evs.push(("limits", internal::earned_msg(&cur, &l, &ceiling, &rec), json!({"limits": l, "latency_ns": ns}))) }
+                Err(code) => evs.push(("gate_block", internal::block_msg(code, &cur, &ceiling, &rec), json!({"code": code, "latency_ns": ns}))),
             }
         }
         _ => return Err(err(StatusCode::NOT_FOUND, "action")),
