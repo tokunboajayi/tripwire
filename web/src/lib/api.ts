@@ -15,12 +15,11 @@ function headers(): Record<string, string> {
 
 export async function api<T = any>(path: string, method = "GET", body?: unknown): Promise<T> {
   const send = () => fetch(path, { method, headers: headers(), body: body ? JSON.stringify(body) : undefined, signal: AbortSignal.timeout(15000) });
-  let r: Response;
-  try {
-    r = await send();
-    if (r.status === 401 && refresher) { token = await refresher(); r = await send(); } // expired token: refresh once
-  } catch (e: any) {
-    throw Object.assign(new Error(e?.name === "TimeoutError" ? "The server took too long to answer" : "Can't reach the server"), { status: 0 });
+  const net = (e: any) => Object.assign(new Error(e?.name === "TimeoutError" ? "The server took too long to answer" : "Can't reach the server"), { status: 0 });
+  let r = await send().catch((e) => { throw net(e); });
+  if (r.status === 401 && refresher) { // expired token: refresh once; if that fails the session is over (stay a 401)
+    try { token = await refresher(); } catch { throw Object.assign(new Error("Your session expired"), { status: 401 }); }
+    r = await send().catch((e) => { throw net(e); });
   }
   if (!r.ok) throw Object.assign(new Error((await r.text()) || r.statusText), { status: r.status });
   return r.json();
