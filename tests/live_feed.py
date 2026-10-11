@@ -21,13 +21,13 @@ def check(name, cond, detail=""):
 def free_port():
     s = socket.socket(); s.bind(("127.0.0.1", 0)); p = s.getsockname()[1]; s.close(); return p
 
-# ---- fake Binance: 700 daily bars of history, today's bar moves on every poll ----
+# ---- fake Binance: 1200 daily bars of history (indicators warm before 2025), today's bar moves on every poll ----
 DAY = 86400; TODAY = int(time.time()) // DAY * DAY
 price = {"BTC": 60000.0, "ETH": 3000.0}
 hist = {}
 for sym, p0 in list(price.items()):
     p, bars = p0, []
-    for i in range(700, 0, -1):
+    for i in range(1200, 0, -1):
         o = p; p *= 1 + random.uniform(-0.03, 0.032)
         bars.append([(TODAY - i * DAY) * 1000, o, max(o, p) * 1.01, min(o, p) * 0.99, p, 1000 + random.random() * 500])
     hist[sym] = bars; price[sym] = p

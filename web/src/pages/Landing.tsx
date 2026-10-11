@@ -46,7 +46,7 @@ export default function Landing({ auth0, login, devLogin }: { auth0: boolean; lo
               and runs behind a <span className="font-semibold text-wire">Rust safety layer the AI can't override</span>.
             </p>
             <div className="mt-8"><Start big /></div>
-            <p className="mt-3 text-xs text-slate-500">Takes 60 seconds. Paper money only. Not financial advice.</p>
+            <p className="mt-3 text-xs text-slate-400">Takes 60 seconds. Paper money only. Not financial advice.</p>
           </div>
           <HeroCard />
         </section>
@@ -101,9 +101,9 @@ export default function Landing({ auth0, login, devLogin }: { auth0: boolean; lo
               </ul>
             </div>
             <div className="rounded-xl border border-down/30 bg-down/5 p-5 font-mono text-sm">
-              <div className="text-slate-500">// AI agent, after a losing trade:</div>
+              <div className="text-slate-400">// AI agent, after a losing trade:</div>
               <div className="mt-1 text-slate-300">set_limits(risk: <span className="text-wire">2% → 4%</span>)</div>
-              <div className="mt-4 text-slate-500">// Rust risk gate:</div>
+              <div className="mt-4 text-slate-400">// Rust risk gate:</div>
               <div className="mt-1 font-bold text-red-300">LIMIT_LOOSEN_DENIED · 3.0µs</div>
               <div className="mt-4 text-slate-400">Agents can tighten limits, never loosen them.</div>
             </div>
@@ -116,9 +116,9 @@ export default function Landing({ auth0, login, devLogin }: { auth0: boolean; lo
           <div className="mt-6 grid gap-4 sm:grid-cols-3">
             <div className="card p-6"><div className="label">Crypto market 2025–26</div><div className="mt-2 text-3xl font-bold text-down num">{h ? h.oos_market + "%" : "−27.5%"}</div></div>
             <div className="card p-6"><div className="label">Vantrel 2025–26</div><div className="mt-2 text-3xl font-bold text-up num">{h ? `+${h.oos_conservative}% to +${h.oos_aggressive}%` : "+0.4% to +1.5%"}</div></div>
-            <div className="card p-6"><div className="label">Worst drop 2022–26</div><div className="mt-2 text-3xl font-bold text-white num">{h ? `${h.maxdd_conservative}%` : "−17.4%"} <span className="text-base font-medium text-slate-500">vs {h ? h.maxdd_buy_hold : -75.8}% buy & hold</span></div></div>
+            <div className="card p-6"><div className="label">Worst drop 2022–26</div><div className="mt-2 text-3xl font-bold text-white num">{h ? `${h.maxdd_conservative}%` : "−17.4%"} <span className="text-base font-medium text-slate-400">vs {h ? h.maxdd_buy_hold : -75.8}% buy & hold</span></div></div>
           </div>
-          <p className="mt-3 text-sm text-slate-500">Small sample ({h?.trades ?? 98} trades). It trails buy & hold in strong bull runs; it's built to protect. <button className="text-sky-300 underline" onClick={() => navigate("/backtest")}>See the full backtest</button>.</p>
+          <p className="mt-3 text-sm text-slate-400">Small sample ({h?.trades ?? 98} trades). It trails buy & hold in strong bull runs; it's built to protect. <button className="text-sky-300 underline" onClick={() => navigate("/backtest")}>See the full backtest</button>.</p>
         </section>
 
         {/* vs */}
@@ -143,7 +143,7 @@ export default function Landing({ auth0, login, devLogin }: { auth0: boolean; lo
           <Start />
         </section>
       </main>
-      <footer className="border-t border-ink-800 py-8 text-center text-xs text-slate-500">Paper trading only. Not financial advice. Past results don't predict future returns.</footer>
+      <footer className="border-t border-ink-800 py-8 text-center text-xs text-slate-400">Paper trading only. Not financial advice. Past results don't predict future returns.</footer>
     </div>
   );
 }

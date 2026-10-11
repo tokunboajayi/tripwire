@@ -51,8 +51,6 @@ pub fn router(app: S) -> Router {
         .route("/internal/limits", post(internal::limits))
         .route("/internal/audit/head", get(internal::audit_head))
         .route("/internal/audit/anchor", post(internal::audit_anchor))
-        .route("/internal/link", post(internal::link))
-        .route("/internal/phones", get(internal::phones))
         .route_layer(middleware::from_fn(private_only));
     Router::new()
         // public
@@ -75,6 +73,7 @@ pub fn router(app: S) -> Router {
         .route("/v1/stream", get(sse::stream))
         .route("/v1/replays", post(account::start_replay))
         .route("/v1/replays/me", get(account::get_replay))
+        .route("/v1/replays/me/stop", post(account::stop_replay))
         .route("/v1/voice", get(account::voice))
         .route("/v1/admin/kill-all", post(account::kill_all))
         .merge(internal)

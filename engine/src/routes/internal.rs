@@ -151,25 +151,3 @@ pub async fn audit_anchor(State(app): State<S>, h: HeaderMap, Json(b): Json<Anch
         json!({"seq": b.seq, "signature": b.signature, "cluster": b.cluster}));
     ok(json!({"ok": true}))
 }
-
-#[derive(Deserialize)]
-pub struct LinkIn { code: String, phone: String }
-
-/// iMessage bridge: "link 1234" from a phone binds it to the account that requested the code.
-pub async fn link(State(app): State<S>, h: HeaderMap, Json(b): Json<LinkIn>) -> R {
-    internal(&app, &h)?;
-    let mut w = app.w.lock().unwrap();
-    let t = now();
-    let u = w.accounts.values().find(|a| a.link_code.as_ref().is_some_and(|(c, exp)| *c == b.code.trim() && *exp > t)).map(|a| a.user.clone())
-        .ok_or(err(StatusCode::NOT_FOUND, "bad or expired code"))?;
-    for a in w.accounts.values_mut() { if a.phone.as_deref() == Some(b.phone.as_str()) { a.phone = None; } } // one phone, one account
-    if let Some(a) = w.accounts.get_mut(&u) { a.phone = Some(b.phone.clone()); a.link_code = None; }
-    w.emit(Some(&u), "status", "iMessage linked: Vantrel will text you when it acts.".into(), json!({"imessage": true}));
-    ok(json!({"user": u}))
-}
-
-pub async fn phones(State(app): State<S>, h: HeaderMap) -> R {
-    internal(&app, &h)?;
-    let w = app.w.lock().unwrap();
-    ok(json!(w.accounts.values().filter_map(|a| a.phone.as_ref().map(|p| json!({"user": a.user, "phone": p}))).collect::<Vec<_>>()))
-}

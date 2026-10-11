@@ -38,7 +38,7 @@ export default function Onboard({ done, logout }: { done: () => void; logout: ()
           {STEPS.map((s, i) => (
             <li key={s} aria-current={i === step ? "step" : undefined}>
               <div className={"h-1.5 rounded-full " + (i <= step ? "bg-up" : "bg-ink-700")} />
-              <div className={"mt-2 text-xs font-semibold " + (i === step ? "text-white" : "text-slate-500")}>{i + 1}. {s}</div>
+              <div className={"mt-2 text-xs font-semibold " + (i === step ? "text-white" : "text-slate-400")}>{i + 1}. {s}</div>
             </li>
           ))}
         </ol>
@@ -62,7 +62,7 @@ export default function Onboard({ done, logout }: { done: () => void; logout: ()
               <div className="mt-8 flex flex-wrap items-center gap-3 text-lg text-slate-300">
                 <span>Grow my money by</span>
                 <label className="relative w-36"><span className="sr-only">Goal amount in dollars</span>
-                  <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">$</span>
+                  <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">$</span>
                   <input className="input pl-8 num" type="number" inputMode="numeric" min={1} value={goal || ""} onChange={(e) => setGoal(+e.target.value)} />
                 </label>
                 <span>in</span>
@@ -86,7 +86,7 @@ export default function Onboard({ done, logout }: { done: () => void; logout: ()
               <h1 className="text-2xl font-bold text-white sm:text-3xl">Fund your paper account</h1>
               <p className="mt-2 text-slate-400">Simulated money, traded on live prices. Nothing real is at risk.</p>
               <label className="relative mt-8 block max-w-xs"><span className="sr-only">Amount in dollars</span>
-                <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-2xl text-slate-500">$</span>
+                <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-2xl text-slate-400">$</span>
                 <input className="input py-4 pl-9 text-3xl num" type="number" inputMode="numeric" min={100} max={1000000} value={cash || ""} onChange={(e) => setCash(+e.target.value)} />
               </label>
               <div className="mt-4 flex flex-wrap gap-2">
@@ -95,9 +95,9 @@ export default function Onboard({ done, logout }: { done: () => void; logout: ()
               <div className="mt-8 rounded-xl border border-ink-700 bg-ink-850 p-5">
                 <div className="label">Summary</div>
                 <dl className="mt-3 grid grid-cols-3 gap-4 text-sm">
-                  <div><dt className="text-slate-500">Risk</dt><dd className="font-semibold text-white">{PROFILES[profile].label}</dd></div>
-                  <div><dt className="text-slate-500">Goal</dt><dd className="font-semibold text-white num">+{usd(goal, 0)} / {months} mo</dd></div>
-                  <div><dt className="text-slate-500">Funding</dt><dd className="font-semibold text-white num">{usd(cash, 0)}</dd></div>
+                  <div><dt className="text-slate-400">Risk</dt><dd className="font-semibold text-white">{PROFILES[profile].label}</dd></div>
+                  <div><dt className="text-slate-400">Goal</dt><dd className="font-semibold text-white num">+{usd(goal, 0)} / {months} mo</dd></div>
+                  <div><dt className="text-slate-400">Funding</dt><dd className="font-semibold text-white num">{usd(cash, 0)}</dd></div>
                 </dl>
                 {annual > 0.5 && (
                   <p className="mt-4 flex gap-2 text-sm text-wire"><Icon n="alert" size={16} className="mt-0.5" />

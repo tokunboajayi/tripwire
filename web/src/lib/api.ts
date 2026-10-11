@@ -17,7 +17,7 @@ export async function api<T = any>(path: string, method = "GET", body?: unknown)
 }
 
 export const EVENT_KINDS = ["tick", "order", "gate_block", "regime", "ai_regime", "thesis", "limits", "status", "auto_pause", "digest", "kill",
-  "account", "reasoning", "replay_tick", "replay_order", "replay_done", "mirror", "anchor"] as const;
+  "account", "reasoning", "replay_tick", "replay_order", "replay_regime", "replay_done", "mirror", "anchor"] as const;
 export type Ev = { id: number; ts: number; account?: string | null; kind: string; msg: string; data: any };
 /** Latest live price per symbol from SSE `tick` events (engine refreshes every ~10s). */
 export type LiveBar = { t: number; o: number; h: number; l: number; c: number; v: number };
@@ -46,7 +46,7 @@ export const REGIMES: Record<Regime, { label: string; color: string; brain: Brai
   RANGE: { label: "Calm", color: "#60A5FA", brain: "MR" },
   TREND_UP: { label: "Trending up", color: "#34D399", brain: "TREND" },
   HIGH_VOL: { label: "Volatile", color: "#F5B841", brain: "BREAKOUT" },
-  TREND_DOWN: { label: "Falling", color: "#94A3B8", brain: "SHIELD" },
+  TREND_DOWN: { label: "Falling", color: "#CBD5E1", brain: "SHIELD" },
 };
 export const BRAINS: Record<Brain, { label: string; does: string }> = {
   MR: { label: "Mean-Reversion", does: "Buys sharp dips, sells the bounce" },

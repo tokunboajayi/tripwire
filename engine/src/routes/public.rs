@@ -13,7 +13,6 @@ pub async fn health() -> Json<Value> { Json(json!({"ok": true})) }
 pub async fn config(State(app): State<S>) -> R {
     let mirror = app.w.lock().unwrap().mirror_user.is_some();
     ok(json!({
-        "imessage_number": std::env::var("IMESSAGE_NUMBER").unwrap_or_default(),
         "voice": std::env::var("ELEVENLABS_API_KEY").is_ok_and(|k| !k.is_empty()),
         "stocks": std::path::Path::new(&format!("{}/stocks.json", app.cfg.data_dir)).exists(),
         "mirror": mirror, "symbols": app.cfg.symbols, "dev": app.cfg.dev,

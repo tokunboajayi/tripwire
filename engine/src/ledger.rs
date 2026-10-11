@@ -37,9 +37,6 @@ pub struct Account {
     pub events: VecDeque<Ev>, pub order_times: VecDeque<i64>, pub day: i64, pub day_start_equity: f64, pub mcp_token: String,
     pub digest: Option<String>,
     #[serde(default)] pub last_block: HashMap<String, (String, i64)>,
-    /// iMessage link: linked phone + pending 4-digit code (code, expires_ts).
-    #[serde(default)] pub phone: Option<String>,
-    #[serde(default)] pub link_code: Option<(String, i64)>,
 }
 
 impl Account {
@@ -51,7 +48,7 @@ impl Account {
             sleeves: syms.iter().map(|s| (s.clone(), Sleeve { cash: per, ..Default::default() })).collect(),
             trades: vec![], equity: vec![(now, cash)], events: VecDeque::new(), order_times: VecDeque::new(), day: now / 86400,
             day_start_equity: cash, mcp_token: format!("vt_mcp_{}", uuid::Uuid::new_v4().simple()), digest: None,
-            last_block: HashMap::new(), phone: None, link_code: None,
+            last_block: HashMap::new(),
         }
     }
 

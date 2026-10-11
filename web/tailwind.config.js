@@ -9,7 +9,7 @@ export default {
         wire: "#F5B841",
         up: "#34D399",
         down: "#F87171",
-        regime: { range: "#60A5FA", trend: "#34D399", vol: "#F5B841", down: "#94A3B8" },
+        regime: { range: "#60A5FA", trend: "#34D399", vol: "#F5B841", down: "#CBD5E1" },
       },
       boxShadow: { card: "0 1px 0 0 rgba(255,255,255,.04) inset, 0 8px 24px -12px rgba(0,0,0,.6)" },
     },

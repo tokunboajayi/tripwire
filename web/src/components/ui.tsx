@@ -30,7 +30,7 @@ export function StatusPill({ status, kill }: { status: string; kill?: boolean })
   return (
     <span className={"inline-flex items-center gap-2 rounded-full border border-ink-600 bg-ink-850 px-3 py-1 text-sm font-semibold " + cfg[2]}>
       <span className="relative flex h-2 w-2">
-        {s === "active" && <span className={"absolute inline-flex h-full w-full animate-ping rounded-full opacity-60 " + cfg[1]} />}
+        {s === "active" && <span className={"absolute inline-flex h-full w-full motion-safe:animate-ping rounded-full opacity-60 " + cfg[1]} />}
         <span className={"relative inline-flex h-2 w-2 rounded-full " + cfg[1]} />
       </span>
       {cfg[0]}

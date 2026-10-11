@@ -3,7 +3,9 @@ import { Lines } from "../components/Charts";
 import { Icon } from "../components/Icons";
 import { Empty } from "../components/ui";
 
-export type ReplayTick = { t: number; equity: number; buy_hold: number };
+export type ReplayTick = { t: number; equity: number; buy_hold: number; regimes?: Record<string, { regime: string; brain: string; price: number }> };
+/** Everything the dashboard's "Watch it work" mode needs. */
+export type Demo = { running: boolean; ticks: ReplayTick[]; events: Ev[]; start: () => void; stop: () => void; reset: () => void };
 const START = 10_000;
 
 /** `/replay` — the same engine on real history, sped up: "watch it survive 2025". */
@@ -40,7 +42,7 @@ export default function Replay({ ticks, events, running, stocks, start }: { tick
         <section className="card p-5">
           <h2 className="mb-3 font-semibold text-white">Replay trades</h2>
           <ol className="max-h-80 space-y-1.5 overflow-y-auto text-sm">
-            {events.map((e) => <li key={e.id} className="text-slate-300"><span className="mr-2 text-xs text-slate-500">{new Date(e.ts * 1000).toLocaleTimeString()}</span>{e.msg}</li>)}
+            {events.map((e) => <li key={e.id} className="text-slate-300"><span className="mr-2 text-xs text-slate-400">{new Date(e.ts * 1000).toLocaleTimeString()}</span>{e.msg}</li>)}
           </ol>
         </section>
       )}
@@ -48,5 +50,6 @@ export default function Replay({ ticks, events, running, stocks, start }: { tick
   );
 }
 
-export const startReplay = (dataset: string) =>
-  api("/v1/replays", "POST", { speed: dataset === "stocks" ? 60 : 40, dataset, from: dataset === "stocks" ? "2024-01-01" : "2025-01-01" });
+export const startReplay = (dataset: string, speed?: number) =>
+  api("/v1/replays", "POST", { speed: speed ?? (dataset === "stocks" ? 60 : 40), dataset, from: dataset === "stocks" ? "2024-01-01" : "2025-01-01" });
+export const stopReplay = () => api("/v1/replays/me/stop", "POST").catch(() => {});

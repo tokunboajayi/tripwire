@@ -3,7 +3,7 @@ import { api } from "../lib/api";
 import { VerifyPanel } from "../components/Audit";
 import { Icon } from "../components/Icons";
 
-/** `/settings` — talk to your portfolio (MCP), voice alerts, iMessage, audit trail. */
+/** `/settings` — talk to your portfolio (MCP), voice alerts, audit trail. */
 export default function Settings({ acct, cfg, voice, toggleVoice, reload, logout }: { acct: any; cfg: any; voice: boolean; toggleVoice: () => void; reload: () => void; logout: () => void }) {
   const mcp = useMemo(() => JSON.stringify({ mcpServers: { vantrel: { command: "python", args: ["mcp/server.py"], env: { VANTREL_API: location.origin, VANTREL_MCP_TOKEN: acct.mcp_token } } } }, null, 2), [acct.mcp_token]);
   const [copied, setCopied] = useState(false);
@@ -27,28 +27,11 @@ export default function Settings({ acct, cfg, voice, toggleVoice, reload, logout
         </section>
       )}
 
-      <TextMe linked={!!acct.imessage} number={cfg.imessage_number} reload={reload} />
       <VerifyPanel />
 
       <section className="card p-6">
         <button className="btn btn-danger" onClick={logout}><Icon n="logout" size={16} />Sign out</button>
       </section>
     </div>
-  );
-}
-
-function TextMe({ linked, number, reload }: { linked: boolean; number: string; reload: () => void }) {
-  const [code, setCode] = useState<string | null>(null);
-  useEffect(() => { if (linked) setCode(null); }, [linked]);
-  return (
-    <section className="card p-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold text-white">iMessage alerts</h2>
-        {linked ? <button className="btn" onClick={() => api("/v1/accounts/me/unlink-phone", "POST").then(reload)}>Stop texts</button>
-          : !code && <button className="btn" onClick={() => api("/v1/accounts/me/link-code", "POST").then((r: any) => setCode(r.code))}><Icon n="connect" size={16} />Text me</button>}
-      </div>
-      <p className="mt-2 text-sm text-slate-400">Vantrel texts you when it trades, blocks an order or pauses. A text can make it safer, never riskier.</p>
-      {code && <p className="mt-3 text-sm text-slate-300">Text <code className="rounded bg-ink-800 px-1.5 py-0.5 font-mono text-white">link {code}</code>{number && <> to <b className="text-white">{number}</b></>} within 10 minutes.</p>}
-    </section>
   );
 }

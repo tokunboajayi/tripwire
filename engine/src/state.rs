@@ -23,7 +23,11 @@ pub struct Market {
 }
 
 #[derive(Clone, Debug, Default, Serialize)]
-pub struct Replay { pub status: String, pub equity: Vec<(i64, f64)>, pub buy_hold: Vec<(i64, f64)>, pub trades: Vec<Trade> }
+pub struct Replay {
+    pub status: String, pub equity: Vec<(i64, f64)>, pub buy_hold: Vec<(i64, f64)>, pub trades: Vec<Trade>,
+    /// Identifies one run, so a stopped run's loop can't keep writing into a newer run for the same user.
+    #[serde(skip)] pub gen: u64,
+}
 
 /// Pending Alpaca paper mirror order: (symbol, side, qty).
 pub type MirrorOrder = (String, String, f64);

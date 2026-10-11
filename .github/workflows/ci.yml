@@ -21,12 +21,6 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: '20' }
       - run: cd web && npm ci && npm run build
-  imessage:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
-      - run: cd imessage && bun install && bun test
   tv-mcp:
     runs-on: ubuntu-latest
     steps:
@@ -52,9 +46,6 @@ jobs:
           cd engine && DEV=1 DATA_DIR="$RUNNER_TEMP/vt" MARKET_URL=http://127.0.0.1:9 PORT=8099 nohup ./target/release/vantrel-engine > "$RUNNER_TEMP/engine.log" 2>&1 &
           for i in $(seq 1 60); do curl -sf localhost:8099/v1/health && exit 0; sleep 1; done; cat "$RUNNER_TEMP/engine.log"; exit 1
       - run: python tests/e2e.py .
-      - uses: oven-sh/setup-bun@v2
-      - name: iMessage (Photon) conversation against the engine
-        run: cd imessage && bun install && VANTREL_E2E_API=http://127.0.0.1:8099 bun test
       - name: live price stream + ElevenLabs voice (fake upstreams)
         run: python tests/live_feed.py engine/target/release/vantrel-engine
       - if: failure()

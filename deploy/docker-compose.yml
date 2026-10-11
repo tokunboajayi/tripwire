@@ -14,13 +14,6 @@ services:
     environment: { VANTREL_API: "http://engine:8080" }
     depends_on: [ engine ]
     restart: unless-stopped
-  imessage:
-    build: ../imessage
-    env_file: ../.env
-    environment: { VANTREL_API: "http://engine:8080" }
-    depends_on: [ engine ]
-    restart: unless-stopped
-    profiles: [ "imessage" ]   # needs PHOTON_PROJECT_ID/SECRET; start with --profile imessage
   caddy:
     image: caddy:2
     profiles: [ "https" ]

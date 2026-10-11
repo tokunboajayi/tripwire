@@ -3,7 +3,7 @@
 use crate::brains::{entry_signal, entry_text, exit_check, size};
 use crate::indicators::{compute_ann, Candle, Inds};
 use crate::ledger::{close_pos, Position, Sleeve, Trade, FEE, SLIP};
-use crate::regime::regime;
+use crate::regime::{regime, Regime};
 use crate::risk::Limits;
 use crate::state::Replay;
 use crate::S;
@@ -51,7 +51,7 @@ pub fn load_stocks(dir: &str) -> Option<Dataset> {
 }
 
 /// Run a replay for `user` in the background, emitting `replay_*` events on the user's stream.
-pub fn spawn(app: S, user: String, data: Dataset, lim: Limits, from: i64, speed: f64) {
+pub fn spawn(app: S, user: String, data: Dataset, lim: Limits, from: i64, speed: f64, gen: u64) {
     tokio::spawn(async move {
         let rid = format!("replay:{user}");
         let per = REPLAY_CASH / data.len() as f64;
@@ -60,28 +60,55 @@ pub fn spawn(app: S, user: String, data: Dataset, lim: Limits, from: i64, speed:
         let start: Vec<usize> = data.iter().map(|(_, cs, _)| cs.iter().position(|c| c.t >= from).unwrap_or(cs.len())).collect();
         let base: Vec<f64> = data.iter().zip(&start).map(|((_, cs, _), &i)| cs.get(i).map_or(1., |c| c.c)).collect();
         let days = data.iter().zip(&start).map(|((_, cs, _), &i)| cs.len().saturating_sub(i + 2)).min().unwrap_or(0);
+        // last regime per symbol, so the dashboard can show each brain switch as it happens
+        let mut last_reg: Vec<Option<Regime>> = vec![None; data.len()];
         for d in 0..days {
+            let current = app.w.lock().unwrap().replays.get(&user).is_some_and(|r| r.gen == gen && r.status == "running");
+            if !current { return } // stopped, or superseded by a newer run
             let mut evs = vec![];
+            let mut switches = vec![];
             let (mut eq, mut bh, mut t) = (0., 0., 0);
+            let mut regimes = serde_json::Map::new();
             for (k, (s, cs, ind)) in data.iter().enumerate() {
                 let i = start[k] + d;
-                if let Some(e) = step(s, &mut sleeves[k], cs, ind, i, &lim, &mut trades) { evs.push(e) }
                 let c = cs[i + 1];
+                if let Some((m, mut dta)) = step(s, &mut sleeves[k], cs, ind, i, &lim, &mut trades) {
+                    dta["t"] = json!(c.t);
+                    dta["gen"] = json!(gen);
+                    evs.push((m, dta));
+                }
+                let row = ind.row(i);
+                if row.ready() {
+                    let reg = regime(cs[i].c, &row);
+                    if let Some(prev) = last_reg[k].filter(|p| *p != reg) {
+                        switches.push((format!("{s}: {} → {}. Switching to the {} brain.", prev.label(), reg.label(), reg.brain().label()),
+                            json!({"symbol": s, "from": prev, "to": reg, "brain": reg.brain(), "t": c.t, "gen": gen})));
+                    }
+                    last_reg[k] = Some(reg);
+                    regimes.insert(s.clone(), json!({"regime": reg, "brain": reg.brain(), "price": c.c}));
+                }
                 t = c.t;
                 eq += sleeves[k].cash + sleeves[k].pos.as_ref().map_or(0., |p| p.qty * c.c);
                 bh += per * c.c / base[k];
             }
             {
                 let mut w = app.w.lock().unwrap();
-                if let Some(r) = w.replays.get_mut(&user) { r.equity.push((t, eq)); r.buy_hold.push((t, bh)); r.trades = trades.clone(); }
+                match w.replays.get_mut(&user) {
+                    Some(r) if r.gen == gen => { r.equity.push((t, eq)); r.buy_hold.push((t, bh)); r.trades = trades.clone(); }
+                    _ => return,
+                }
+                for (m, dta) in switches { w.emit(Some(&rid), "replay_regime", m, dta); }
                 for (m, dta) in evs { w.emit(Some(&rid), "replay_order", m, dta); }
-                w.emit(Some(&rid), "replay_tick", String::new(), json!({"t": t, "equity": eq, "buy_hold": bh}));
+                w.emit(Some(&rid), "replay_tick", String::new(), json!({"t": t, "equity": eq, "buy_hold": bh, "regimes": regimes, "gen": gen}));
             }
             tokio::time::sleep(Duration::from_secs_f64(1. / speed)).await;
         }
         let mut w = app.w.lock().unwrap();
-        if let Some(r) = w.replays.get_mut(&user) { r.status = "done".into(); }
-        w.emit(Some(&rid), "replay_done", "Replay finished.".into(), json!({}));
+        match w.replays.get_mut(&user) {
+            Some(r) if r.gen == gen => r.status = "done".into(),
+            _ => return,
+        }
+        w.emit(Some(&rid), "replay_done", "Replay finished.".into(), json!({"gen": gen}));
     });
 }
 

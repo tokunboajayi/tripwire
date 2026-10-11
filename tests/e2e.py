@@ -68,7 +68,6 @@ for act, status in [("pause", "paused"), ("resume", "active"), ("kill", "killed"
     check(f"control {act} -> {status}", c.get("/v1/accounts/me", headers=D).json()["status"] == status)
 check("flatten with no positions ok", c.post("/v1/accounts/me/flatten", headers=D).status_code == 200)
 check("unknown action 404", c.post("/v1/accounts/me/explode", headers=D).status_code == 404)
-lc = c.post("/v1/accounts/me/link-code", headers=D).json(); check("iMessage link code issued", len(lc["code"]) == 4)
 
 # --- MCP token is read-only ---
 M = {"x-mcp-token": tok}
