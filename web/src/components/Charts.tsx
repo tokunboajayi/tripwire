@@ -97,10 +97,16 @@ export function RegimeChart({ data, markers = [], height = 380, live, stream, wi
   // replay: append new bars
   useEffect(() => {
     if (!series.current || !stream) return;
-    if (stream.length < shown.current) shown.current = 0; // a new replay started
+    if (stream.length < shown.current) { // a new replay started: drop the previous run's bars before drawing from January again
+      series.current.setData(data.map((d) => ({ time: d.t as UTCTimestamp, open: d.o, high: d.h, low: d.l, close: d.c })));
+      shown.current = 0;
+    }
+    let lastT = data.length ? data[data.length - 1].t : -Infinity;
+    if (shown.current > 0) lastT = Math.max(lastT, stream[shown.current - 1]?.t ?? lastT);
     for (const b of stream.slice(shown.current)) {
-      if (data.length && b.t <= data[data.length - 1].t) continue;
+      if (b.t <= lastT) continue; // the chart only accepts newer bars; an older one would crash the page
       series.current.update({ time: b.t as UTCTimestamp, open: b.o, high: b.h, low: b.l, close: b.c });
+      lastT = b.t;
     }
     if (stream.length > shown.current) chart.current?.timeScale().scrollToRealTime();
     shown.current = stream.length;

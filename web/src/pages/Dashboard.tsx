@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useNarration } from "../lib/narrator";
+import { Caption } from "../components/Caption";
 import { api, BRAINS, onSpeaking, pct, PROFILES, REGIMES, signedPct, signedUsd, speak, stopSpeaking, usd, type Brain, type Ev, type Live, type Profile, type Regime } from "../lib/api";
 import { EquityChart, Lines, RegimeChart, type Candle, type Marker } from "../components/Charts";
 import { LimitsTable, RiskSlider } from "../components/RiskSlider";
@@ -49,8 +51,9 @@ export default function Dashboard({ acct, feed, reasoning, reload, voice, live =
     api(`/v1/accounts/me/${x}`, "POST").then(reload).catch((e) => alert(e.message)).finally(() => setBusy(""));
   };
   const setProfile = (p: Profile) => { if (p !== acct.profile) api("/v1/accounts/me/profile", "PATCH", { profile: p }).then(reload).catch((e) => alert(e.message)); };
+  const narr = useNarration(demo, sym, voice); // ElevenLabs narration + captions for the 2025 replay
   const startDemo = () => { setDemoView(true); demo.start(); scrollTo({ top: 0, behavior: "smooth" }); };
-  const exitDemo = () => { if (demo.running) demo.stop(); demo.reset(); setDemoView(false); };
+  const exitDemo = () => { narr.cancel(); if (demo.running) demo.stop(); demo.reset(); setDemoView(false); };
 
   // ---- what the dashboard shows: live account, or the 2025 replay ----
   const tick = demo.ticks[demo.ticks.length - 1];
@@ -97,7 +100,7 @@ export default function Dashboard({ acct, feed, reasoning, reload, voice, live =
 
   return (
     <div className="space-y-5">
-      {offline && !inDemo && <div className="rounded-xl border border-wire/40 bg-wire/10 p-3 text-sm text-wire">Live price feed unreachable: showing saved historical data. New buys are blocked (STALE_PRICE) until prices refresh.</div>}
+      {offline && !inDemo && <div data-offline-banner className="rounded-xl border border-wire/40 bg-wire/10 p-3 text-sm text-wire">Live price feed unreachable: showing saved historical data. New buys are blocked (STALE_PRICE) until prices refresh.</div>}
 
       {/* ---------- hero: which brain is driving, how you're doing, the demo button ---------- */}
       <Hero regime={activeRegime}>
@@ -318,6 +321,7 @@ export default function Dashboard({ acct, feed, reasoning, reload, voice, live =
         </div>
       </section>
       <p className="text-center text-xs text-slate-400">Paper trading only. Not financial advice. Charts by <a className="underline" href="https://www.tradingview.com/" target="_blank" rel="noreferrer">TradingView</a> Lightweight Charts.</p>
+      {inDemo && narr.caption && <Caption key={narr.caption.key} text={narr.caption.text} speaking={narr.speaking} on={narr.on} voice={voice} onToggle={narr.toggle} />}
     </div>
   );
 }

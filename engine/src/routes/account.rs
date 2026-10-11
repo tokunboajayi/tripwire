@@ -11,6 +11,8 @@ use axum::http::{HeaderMap, StatusCode};
 use axum::response::IntoResponse;
 use axum::Json;
 use serde::Deserialize;
+use std::collections::HashMap;
+use std::sync::Mutex;
 use serde_json::{json, Value};
 
 #[derive(Deserialize)]
@@ -235,9 +237,12 @@ pub async fn voice(State(app): State<S>, Query(q): Query<VoiceQ>) -> R {
     let key = std::env::var("ELEVENLABS_API_KEY").ok().filter(|k| !k.is_empty()).ok_or(err(StatusCode::NOT_FOUND, "voice off"))?;
     let vid = env_or("ELEVENLABS_VOICE", "21m00Tcm4TlvDq8ikWAM");
     let model = env_or("ELEVENLABS_MODEL", "eleven_flash_v2_5");
+    let text = speech_text(&q.text);
+    let ck = format!("{vid}|{model}|{text}");
+    if let Some(b) = VOICE_CACHE.lock().unwrap().get(&ck).cloned() { return Ok(audio(b)) } // replay narration repeats: no new credits
     let r = app.http.post(format!("{}/v1/text-to-speech/{vid}", app.cfg.elevenlabs_url))
         .header("xi-api-key", key.trim()).header("accept", "audio/mpeg")
-        .json(&json!({"text": speech_text(&q.text), "model_id": model}))
+        .json(&json!({"text": text, "model_id": model}))
         .send().await.map_err(|e| { eprintln!("voice: ElevenLabs unreachable: {e}"); err(StatusCode::BAD_GATEWAY, "ElevenLabs unreachable") })?;
     let status = r.status();
     if !status.is_success() {
@@ -251,7 +256,16 @@ pub async fn voice(State(app): State<S>, Query(q): Query<VoiceQ>) -> R {
         return Err(err(StatusCode::BAD_GATEWAY, &msg));
     }
     let bytes = r.bytes().await.map_err(|e| err(StatusCode::BAD_GATEWAY, &e.to_string()))?;
-    Ok(([(axum::http::header::CONTENT_TYPE, "audio/mpeg")], bytes).into_response())
+    let mut c = VOICE_CACHE.lock().unwrap();
+    if c.len() >= 300 { c.clear(); } // simple bound: ~300 short clips
+    c.insert(ck, bytes.clone());
+    Ok(audio(bytes))
+}
+
+/// Spoken lines already fetched from ElevenLabs, keyed by voice|model|text.
+static VOICE_CACHE: std::sync::LazyLock<Mutex<HashMap<String, axum::body::Bytes>>> = std::sync::LazyLock::new(Default::default);
+fn audio(b: axum::body::Bytes) -> axum::response::Response {
+    ([(axum::http::header::CONTENT_TYPE, "audio/mpeg"), (axum::http::header::CACHE_CONTROL, "private, max-age=86400")], b).into_response()
 }
 
 /// Up to 600 chars (bounds ElevenLabs credit use), cut at the last sentence end so speech never stops mid-word.

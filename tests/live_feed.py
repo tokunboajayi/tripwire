@@ -112,6 +112,9 @@ try:
     long = "Today up 0.8 percent, two trades, one win. " * 20
     r = httpx.get(U + "/v1/voice", params={"token": "dev:live", "text": long})
     check("voice proxy returns audio/mpeg", r.status_code == 200 and r.headers["content-type"] == "audio/mpeg" and r.content.startswith(b"ID3"), (r.status_code, r.headers.get("content-type")))
+    n = len(tts)
+    r2 = httpx.get(U + "/v1/voice", params={"token": "dev:live", "text": long})
+    check("same line again is served from the engine cache (no new ElevenLabs call)", r2.status_code == 200 and r2.content == r.content and len(tts) == n, (r2.status_code, len(tts), n))
     t = tts[-1] if tts else {}
     check("engine sends the key server-side to the configured voice", t.get("key") == "test-key" and t.get("path") == "/v1/text-to-speech/voice123", t)
     check("long text capped at 600 chars on a sentence end, model set", 200 < len(t.get("text", "")) <= 600 and t.get("text", "").endswith(".") and t.get("model_id"), {k: (len(v) if k == "text" else v) for k, v in t.items()})
