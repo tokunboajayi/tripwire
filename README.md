@@ -51,7 +51,7 @@ Small sample (98 trades). It lags in strong bull runs; it's built to protect. De
 | Trust | `audit.rs` | SHA-256 hash chain anchored on Solana |
 
 ### Web (`web/src/`, spec §10)
-`/` landing · `/onboard` risk slider → goal → fund · `/app` dashboard · `/replay` · `/backtest` · `/settings` (MCP, voice, iMessage, audit).
+`/` landing · `/onboard` risk slider → goal → fund · `/app` dashboard · `/replay` · `/backtest` · `/settings` (MCP, voice, audit).
 
 ## Run it locally (2 terminals)
 ```bash

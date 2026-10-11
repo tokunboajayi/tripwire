@@ -23,7 +23,6 @@ if command -v ufw >/dev/null; then
 fi
 
 PROFILE=""; [ "${1:-}" = "https" ] && PROFILE="--profile https"
-grep -qE "^PHOTON_PROJECT_ID=.+" .env && PROFILE="$PROFILE --profile imessage" && echo "== iMessage agent enabled"
 echo "== building + starting (first build ~10-15 min)"
 docker compose --env-file .env -f deploy/docker-compose.yml $PROFILE up -d --build
 

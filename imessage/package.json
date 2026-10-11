@@ -1,7 +1,0 @@
-{
-  "name": "vantrel-imessage",
-  "private": true,
-  "type": "module",
-  "scripts": { "start": "bun src/index.ts", "test": "bun test" },
-  "dependencies": { "spectrum-ts": "12.10.1" }
-}

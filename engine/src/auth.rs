@@ -34,12 +34,6 @@ pub async fn who(app: &App, h: &HeaderMap) -> Result<(String, bool), ApiErr> {
         let w = app.w.lock().unwrap();
         return w.accounts.values().find(|a| a.mcp_token == t).map(|a| (a.user.clone(), true)).ok_or(err(StatusCode::UNAUTHORIZED, "bad mcp token"));
     }
-    if let (Some(t), Some(u)) = (hv("x-internal-token"), hv("x-act-as")) {
-        // iMessage bridge: may act only for accounts that linked a phone themselves
-        let w = app.w.lock().unwrap();
-        if t == app.cfg.internal_token && w.accounts.get(&u).is_some_and(|a| a.phone.is_some()) { return Ok((u, false)) }
-        return Err(err(StatusCode::UNAUTHORIZED, "bridge: unauthorized or account not linked"));
-    }
     if let Some(t) = hv("authorization").as_deref().and_then(|b| b.strip_prefix("Bearer ")) {
         return user_from_token(app, t).await.map(|u| (u, false)).ok_or(err(StatusCode::UNAUTHORIZED, "bad token"));
     }
