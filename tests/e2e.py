@@ -4,7 +4,7 @@ Start a fresh engine first (offline fixtures keep results deterministic):
     cd engine && DEV=1 DATA_DIR=/tmp/vt MARKET_URL=http://127.0.0.1:9 PORT=8099 ./target/release/vantrel-engine
 Then:  python tests/e2e.py .        (needs: httpx pydantic mcp, and tv-mcp installed: pip install -e tv-mcp)
 Env: U (engine URL, default http://127.0.0.1:8099), INTERNAL_TOKEN (default change-me, DEV only)."""
-import sys, os, json, time, threading, asyncio, tempfile, httpx
+import re, sys, os, json, time, threading, asyncio, tempfile, httpx
 REPO = sys.argv[1]; U = os.environ.get("U", "http://127.0.0.1:8099")
 I = {"x-internal-token": os.environ.get("INTERNAL_TOKEN", "change-me")}
 D = {"x-dev-user": "e2e"}
@@ -15,6 +15,12 @@ c = httpx.Client(base_url=U, timeout=30)
 
 # --- public ---
 check("health", c.get("/v1/health").json() == {"ok": True})
+page = c.get("/")
+if page.status_code == 200 and "<html" in page.text.lower():  # only when the engine serves the built web app
+    js = re.search(r'/assets/[^"]+\.js', page.text).group(0)
+    check("page is re-checked every load (no stale release after deploy)", page.headers.get("cache-control") == "no-cache", page.headers)
+    check("SPA routes too", c.get("/settings").headers.get("cache-control") == "no-cache")
+    check("hashed bundles cached forever", "immutable" in c.get(js).headers.get("cache-control", ""))
 cfg = c.get("/v1/config").json(); check("config lists symbols", "BTC" in cfg["symbols"], cfg)
 reg = c.get("/v1/market/regimes").json(); check("regimes: BTC loaded with brain", reg and reg[0]["symbol"] == "BTC" and reg[0]["brain"] in ("MR", "TREND", "BREAKOUT", "SHIELD"), reg)
 cs = c.get("/v1/market/BTC/candles?days=50").json(); check("candles: 50 bars with regime tags", len(cs) == 50 and all(k["regime"] for k in cs), len(cs))
