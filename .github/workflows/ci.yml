@@ -56,7 +56,7 @@ jobs:
           (cd engine && DATA_DIR="$RUNNER_TEMP/vtp" INTERNAL_TOKEN="$(openssl rand -hex 24)" MARKET_URL=http://127.0.0.1:9 WEB_DIR="$GITHUB_WORKSPACE/web/dist" PORT=8098 \
             nohup ./target/release/vantrel-engine > "$RUNNER_TEMP/engine-prod.log" 2>&1 &)
           for i in $(seq 1 60); do curl -sf localhost:8098/v1/health >/dev/null && break; sleep 1; done
-          cd tests/ui && npm install --no-audit --no-fund && npx playwright-core install --with-deps chromium && U=http://localhost:8098 node journey.mjs
+          cd tests/ui && npm install --no-audit --no-fund && npx playwright-core install --with-deps chromium && U=http://localhost:8098 node journey.mjs && U=http://localhost:8098 node reload.mjs
       - if: failure()
         run: cat "$RUNNER_TEMP/engine.log"; cat "$RUNNER_TEMP/engine-prod.log" 2>/dev/null || true
   docker:

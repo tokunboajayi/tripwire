@@ -11,7 +11,9 @@ export default function Landing({ auth0, signin = "name", login, devLogin }: { a
   useEffect(() => { api("/v1/backtest").then(setBt).catch(() => {}); }, []);
   const h = bt?.headline;
 
-  const start = (big?: boolean) => signin === "none" ? (
+  const start = (big?: boolean) => signin === "outdated" ? (
+    <p role="alert" className="max-w-md rounded-md border border-wire/40 bg-wire/10 p-3 text-sm text-amber-100">This page is newer than the server's engine, so sign-in would fail. Redeploy with <code>--build</code> so both update together.</p>
+  ) : signin === "none" ? (
     <p role="alert" className="max-w-md rounded-md border border-wire/40 bg-wire/10 p-3 text-sm text-amber-100">Sign-in is turned off on this server. Set GUEST_SIGNIN=1 (or configure Auth0) and restart the engine.</p>
   ) : auth0 ? (
     <button className={"btn btn-primary " + (big ? "px-6 py-3.5 text-base" : "")} onClick={login}>Get started <Icon n="chevron" size={18} /></button>

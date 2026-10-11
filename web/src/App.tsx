@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
-import { api, setRefresher, setToken, setVoice, speak, stream, type Ev, type Live } from "./lib/api";
+import { api, getToken, setRefresher, setToken, setVoice, speak, stream, type Ev, type Live } from "./lib/api";
 import { navigate, usePath, type Route } from "./lib/router";
 import { Logo } from "./components/Logo";
 import { Icon, type IconName } from "./components/Icons";
@@ -53,7 +53,9 @@ export default function App({ auth0 }: { auth0: boolean }) {
     if (path === "/backtest") return <PublicShell><Backtest /></PublicShell>;
     if (authErr) return <Problem title="Couldn't finish signing in" detail={authErr} action="Sign in again" onAction={() => a?.loginWithRedirect()} />;
     if (deciding || path !== "/") return <Splash />;
-    return <Landing auth0={auth0} signin={auth0 ? "auth0" : pub?.signin ?? "name"} login={() => a?.loginWithRedirect()} devLogin={nameLogin} />;
+    // name sign-in needs a matching engine: an older engine (no `guest` in /v1/config) or GUEST_SIGNIN=0 would refuse it
+    const signin = auth0 ? "auth0" : pub?.dev ? "name" : pub?.guest === true ? "name" : pub?.guest === false ? "none" : "outdated";
+    return <Landing auth0={auth0} signin={signin} login={() => a?.loginWithRedirect()} devLogin={nameLogin} />;
   }
   return <SignedIn path={path} logout={logout} />;
 }
@@ -140,7 +142,9 @@ function SignedIn({ path, logout }: { path: Route; logout: () => void }) {
   }, [acct, loadErr]);
 
   if (missing) return <Onboard done={load} logout={logout} />;
-  if (!acct && loadErr?.status === 401) return <Problem title="Your session expired" detail="Sign in again to see your portfolio." action="Sign in again" onAction={logout} />;
+  if (!acct && loadErr?.status === 401) return getToken().startsWith("guest:") || getToken().startsWith("dev:")
+    ? <Problem title="The server refused this sign-in" detail={`Engine said: "${loadErr.msg}". The page and the engine are probably different versions: redeploy so both rebuild together.`} action="Back to start" onAction={logout} />
+    : <Problem title="Your session expired" detail="Sign in again to see your portfolio." action="Sign in again" onAction={logout} />;
   if (!acct && loadErr) return <Problem title="Can't load your portfolio" detail={`${loadErr.msg}${loadErr.status ? ` (${loadErr.status})` : ""}. Retrying every 5 seconds…`} action="Retry now" onAction={load} />;
   if (!acct) return <Splash />;
 

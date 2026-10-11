@@ -52,6 +52,14 @@ finally:
     proc.terminate(); out = proc.communicate(timeout=10)[0]
     if not all(results): print("---- engine log ----\n" + out[-3000:])
 
+proc, U = start({"AUTH0_DOMAIN": "example.us.auth0.com"})
+try:
+    cfg = httpx.get(U + "/v1/config").json()
+    check("Auth0 on the engine only: guest sign-in still works (no web/engine mismatch trap)", cfg.get("guest") is True and
+          httpx.get(U + "/v1/accounts/me", headers={"authorization": f"Bearer guest:{GUEST}"}).status_code == 404, cfg)
+finally:
+    proc.terminate(); proc.communicate(timeout=10)
+
 proc, U = start({"GUEST_SIGNIN": "0"})
 try:
     check("GUEST_SIGNIN=0 and no Auth0 -> config says sign-in is off", httpx.get(U + "/v1/config").json().get("signin") == "none")
