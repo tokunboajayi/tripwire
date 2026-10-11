@@ -34,3 +34,33 @@ jobs:
       - uses: actions/setup-python@v5
         with: { python-version: '3.11' }
       - run: pip install -e tv-mcp pytest pytest-asyncio && cd tv-mcp && pytest -q
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+      - run: cd web && npm ci && npm run build
+      - run: cd engine && cargo build --release
+      - run: pip install httpx pydantic "mcp>=1.12,<2" -e tv-mcp
+      - name: start engine (offline fixtures, deterministic)
+        run: |
+          mkdir -p "$RUNNER_TEMP/vt" && cp data/backtest.json "$RUNNER_TEMP/vt/"
+          cd engine && DEV=1 DATA_DIR="$RUNNER_TEMP/vt" MARKET_URL=http://127.0.0.1:9 PORT=8099 nohup ./target/release/vantrel-engine > "$RUNNER_TEMP/engine.log" 2>&1 &
+          for i in $(seq 1 60); do curl -sf localhost:8099/v1/health && exit 0; sleep 1; done; cat "$RUNNER_TEMP/engine.log"; exit 1
+      - run: python tests/e2e.py .
+      - if: failure()
+        run: cat "$RUNNER_TEMP/engine.log"
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t vantrel .
+      - name: container starts and serves health + dashboard
+        run: |
+          docker run -d --name vt -p 8080:8080 -e DEV=1 vantrel
+          for i in $(seq 1 90); do curl -sf localhost:8080/v1/health && break; sleep 1; done
+          curl -sf localhost:8080/v1/health && curl -sf localhost:8080/ | grep -q '<div id="root">' || { docker logs vt; exit 1; }

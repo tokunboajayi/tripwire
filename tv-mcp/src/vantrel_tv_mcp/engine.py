@@ -24,8 +24,8 @@ import httpx
 
 # Pre-rebrand names (TRIPWIRE_*) still work.
 for _k, _v in list(os.environ.items()):
-    if _k.startswith("TRIPWIRE_"):
-        os.environ.setdefault("VANTREL_" + _k[9:], _v)
+    if _k.startswith("TRIPWIRE_") and _v and not os.environ.get("VANTREL_" + _k[9:]):
+        os.environ["VANTREL_" + _k[9:]] = _v
 
 ENGINE_URL = (
     os.environ.get("VANTREL_API_URL") or os.environ.get("VANTREL_API") or "http://127.0.0.1:8080"
