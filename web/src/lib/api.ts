@@ -75,22 +75,43 @@ export const time = (ts: number) => new Date(ts * 1000).toLocaleTimeString([], {
 // ---------- voice (ElevenLabs via the engine, key stays server-side) ----------
 let voiceOn = false;
 export const setVoice = (on: boolean) => (voiceOn = on);
-/** Speaks via the engine's ElevenLabs proxy. Resolves to an error message, or null when audio started. */
+// One voice at a time: a new line (or Stop) cancels the line that is loading or playing.
+let current: { audio?: HTMLAudioElement; abort: AbortController; url?: string } | null = null;
+const listeners = new Set<(speaking: boolean) => void>();
+const notify = () => listeners.forEach((f) => f(!!current));
+/** Subscribe to "is something speaking right now" (for Stop buttons). Returns an unsubscribe. */
+export function onSpeaking(f: (speaking: boolean) => void) { listeners.add(f); f(!!current); return () => { listeners.delete(f); }; }
+export function stopSpeaking() {
+  if (!current) return;
+  current.abort.abort(); current.audio?.pause();
+  if (current.url) URL.revokeObjectURL(current.url);
+  current = null; notify();
+}
+
+/** Speaks via the engine's ElevenLabs proxy. Resolves to an error message, or null when audio started (or was replaced). */
 export async function speak(text: string, force = false): Promise<string | null> {
   if ((!voiceOn && !force) || !text) return null;
+  stopSpeaking();
+  const me = { abort: new AbortController() } as NonNullable<typeof current>;
+  current = me; notify();
+  const done = () => { if (current === me) { if (me.url) URL.revokeObjectURL(me.url); current = null; notify(); } };
   try {
-    const r = await fetch(`/v1/voice?token=${encodeURIComponent(token)}&text=${encodeURIComponent(text)}`);
+    const r = await fetch(`/v1/voice?token=${encodeURIComponent(token)}&text=${encodeURIComponent(text)}`, { signal: me.abort.signal });
     if (!r.ok) {
       const why = (await r.text()) || `voice failed (${r.status})`;
-      console.warn("voice:", why);
+      console.warn("voice:", why); done();
       return why;
     }
-    const url = URL.createObjectURL(await r.blob());
-    const a = new Audio(url);
-    a.onended = () => URL.revokeObjectURL(url);
-    await a.play();
+    const blob = await r.blob();
+    if (current !== me) return null; // stopped or replaced while loading
+    me.url = URL.createObjectURL(blob);
+    me.audio = new Audio(me.url);
+    me.audio.onended = done;
+    await me.audio.play();
     return null;
   } catch (e) {
+    if (e instanceof Error && e.name === "AbortError") return null; // cancelled on purpose
+    done();
     const why = e instanceof Error && e.name === "NotAllowedError" ? "Browser blocked audio. Click anywhere on the page, then try again." : String(e);
     console.warn("voice:", why);
     return why;
