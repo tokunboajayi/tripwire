@@ -4,9 +4,9 @@
 //! so the demo never shows an empty screen. Offline prices never refresh, so the risk gate blocks new buys (STALE_PRICE).
 use crate::indicators::{compute, Candle};
 use crate::regime::regime;
-use crate::state::Market;
+use crate::state::{Ev, Market};
 use crate::{now, App, S};
-use serde_json::Value;
+use serde_json::{json, Value};
 
 /// First daily bar we load (2021-06-01), enough history for 200-day averages before 2022.
 const HISTORY_START_MS: i64 = 1_622_505_600_000;
@@ -64,11 +64,13 @@ pub async fn load_all(app: &S) {
     }
 }
 
-/// Merge the latest bars into each market (today's bar is a rolling daily bar).
+/// Merge the latest bars into each market (today's bar is a rolling daily bar) and stream a `tick`
+/// per symbol so charts move live. Ticks go straight to SSE: not stored, not audited.
 pub async fn refresh(app: &S) {
     for s in app.cfg.symbols.clone() {
         let Ok(latest) = klines(app, &s, None).await else { continue };
-        let mut w = app.w.lock().unwrap();
+        let mut guard = app.w.lock().unwrap();
+        let w = &mut *guard; // split borrows: markets (mut) + tx
         let Some(m) = w.markets.get_mut(&s) else { continue };
         for k in latest {
             match m.candles.iter().position(|c| c.t == k.t) {
@@ -77,8 +79,13 @@ pub async fn refresh(app: &S) {
                 _ => {}
             }
         }
-        m.price = m.candles.last().unwrap().c;
+        // keep indicators in step with candles: a new daily bar (UTC midnight) must never outrun them
+        m.inds = compute(&m.candles);
+        let bar = *m.candles.last().unwrap();
+        m.price = bar.c;
         m.updated = now();
         m.feed = "live".into();
+        let data = json!({"symbol": s, "price": bar.c, "bar": bar, "regime": m.fin, "brain": m.fin.brain()});
+        let _ = w.tx.send(Ev { id: 0, ts: m.updated, account: None, kind: "tick".into(), msg: String::new(), data });
     }
 }

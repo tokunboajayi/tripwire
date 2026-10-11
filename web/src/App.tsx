@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
-import { api, setToken, setVoice, speak, stream, type Ev } from "./lib/api";
+import { api, setToken, setVoice, speak, stream, type Ev, type Live } from "./lib/api";
 import { navigate, usePath, type Route } from "./lib/router";
 import { Logo } from "./components/Logo";
 import { Icon, type IconName } from "./components/Icons";
@@ -49,6 +49,7 @@ function SignedIn({ path, logout }: { path: Route; logout: () => void }) {
   const [replayEvents, setReplayEvents] = useState<Ev[]>([]);
   const [replayRunning, setReplayRunning] = useState(false);
   const [voice, setV] = useState(false);
+  const [live, setLive] = useState<Live>({});
 
   const load = useCallback(() => api("/v1/accounts/me").then((x) => { setAcct(x); setMissing(false); }).catch((e) => e.status === 404 && setMissing(true)), []);
 
@@ -64,8 +65,13 @@ function SignedIn({ path, logout }: { path: Route; logout: () => void }) {
   useEffect(() => {
     if (!acct) return;
     api<Ev[]>("/v1/accounts/me/events?limit=200").then(setFeed).catch(() => {});
-    const poll = setInterval(load, 15000);
+    const poll = setInterval(load, 10000); // portfolio value follows live prices
     const close = stream((k, ev) => {
+      if (k === "tick") {
+        const d = ev.data;
+        setLive((l) => ({ ...l, [d.symbol]: { price: d.price, prev: l[d.symbol]?.price ?? d.price, bar: d.bar, ts: ev.ts } }));
+        return;
+      }
       if (k === "reasoning") return setReasoning((r) => ({ ...r, [ev.data.symbol]: ((r[ev.data.symbol] || "") + ev.msg).slice(-1200) }));
       if (k === "replay_tick") return setTicks((t) => [...t, ev.data]);
       if (k === "replay_order") return setReplayEvents((e) => [ev, ...e].slice(0, 300));
@@ -114,7 +120,7 @@ function SignedIn({ path, logout }: { path: Route; logout: () => void }) {
         {path === "/replay" ? <Replay ticks={ticks} events={replayEvents} running={replayRunning} stocks={!!cfg.stocks} start={runReplay} />
           : path === "/backtest" ? <Backtest />
           : path === "/settings" ? <Settings acct={acct} cfg={cfg} voice={voice} toggleVoice={toggleVoice} reload={load} logout={logout} />
-          : <Dashboard acct={acct} feed={feed} reasoning={reasoning} reload={load} voice={!!cfg.voice} />}
+          : <Dashboard acct={acct} feed={feed} reasoning={reasoning} reload={load} voice={!!cfg.voice} live={live} />}
       </main>
 
       {/* mobile tab bar */}

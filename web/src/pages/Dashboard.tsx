@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { api, BRAINS, pct, PROFILES, REGIMES, signedUsd, speak, usd, type Ev, type Profile, type Regime } from "../lib/api";
+import { api, BRAINS, pct, PROFILES, REGIMES, signedUsd, speak, usd, type Ev, type Live, type Profile, type Regime } from "../lib/api";
 import { EquityChart, RegimeChart, type Candle, type Marker } from "../components/Charts";
 import { LimitsTable, RiskSlider } from "../components/RiskSlider";
 import { WhyLog } from "../components/WhyLog";
@@ -9,7 +9,9 @@ import { Icon } from "../components/Icons";
 type MarketRow = { symbol: string; price: number; regime: Regime; regime_label: string; source: string; confidence: number; ai_reason: string | null; feed?: string };
 
 /** `/app` — you watch: chart with regime bands, brains, P&L, goal, positions, why-log, live reasoning, risk slider, controls. */
-export default function Dashboard({ acct, feed, reasoning, reload, voice }: { acct: any; feed: Ev[]; reasoning: Record<string, string>; reload: () => void; voice: boolean }) {
+export default function Dashboard({ acct, feed, reasoning, reload, voice, live = {} }: { acct: any; feed: Ev[]; reasoning: Record<string, string>; reload: () => void; voice: boolean; live?: Live }) {
+  const [, setNow] = useState(0);
+  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, []); // "updated Ns ago"
   const [markets, setMarkets] = useState<MarketRow[]>([]);
   const [sym, setSym] = useState("");
   const [candles, setCandles] = useState<Candle[]>([]);
@@ -85,7 +87,7 @@ export default function Dashboard({ acct, feed, reasoning, reload, voice }: { ac
           <button key={m.symbol} onClick={() => setSym(m.symbol)} aria-pressed={sym === m.symbol}
             className={"card p-4 text-left transition hover:border-slate-500 " + (sym === m.symbol ? "ring-2 ring-offset-2 ring-offset-ink-950" : "")}
             style={sym === m.symbol ? { ["--tw-ring-color" as any]: REGIMES[m.regime].color } : undefined}>
-            <div className="flex items-center justify-between"><b className="text-white">{m.symbol}</b><span className="text-sm text-slate-300 num">{usd(m.price)}</span></div>
+            <div className="flex items-center justify-between"><b className="text-white">{m.symbol}</b><LivePrice price={live[m.symbol]?.price ?? m.price} prev={live[m.symbol]?.prev} /></div>
             <div className="mt-3"><BrainBadge regime={m.regime} /></div>
             <div className="mt-2 text-xs text-slate-400">
               {m.regime_label} market · {m.source === "ai" ? `AI agrees, ${pct(m.confidence)} confident` : m.source === "override_rejected" ? "AI overruled by Rust" : "rule-based"}
@@ -98,14 +100,14 @@ export default function Dashboard({ acct, feed, reasoning, reload, voice }: { ac
       <section className="grid gap-5 lg:grid-cols-3">
         <div className="card p-4 lg:col-span-2">
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2 px-1">
-            <h2 className="font-semibold text-white">{sym || "…"} · daily</h2>
+            <h2 className="flex items-center gap-3 font-semibold text-white">{sym || "…"} · daily <LiveBadge ts={live[sym]?.ts} /></h2>
             <div className="flex flex-wrap gap-3 text-xs text-slate-400">
               {(Object.keys(REGIMES) as Regime[]).map((r) => (
                 <span key={r} className="inline-flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-sm" style={{ background: REGIMES[r].color + "66" }} />{REGIMES[r].label} · {BRAINS[REGIMES[r].brain].label}</span>
               ))}
             </div>
           </div>
-          {candles.length ? <RegimeChart data={candles} markers={markers} /> : <div className="grid h-[360px] place-items-center text-sm text-slate-500">Loading chart…</div>}
+          {candles.length ? <RegimeChart data={candles} markers={markers} live={live[sym]?.bar} /> : <div className="grid h-[360px] place-items-center text-sm text-slate-500">Loading chart…</div>}
         </div>
         <div className="card flex flex-col p-5">
           <div className="flex items-center justify-between">
@@ -189,5 +191,24 @@ export default function Dashboard({ acct, feed, reasoning, reload, voice }: { ac
       </section>
       <p className="text-center text-xs text-slate-600">Paper trading only. Not financial advice. Charts by <a className="underline" href="https://www.tradingview.com/" target="_blank" rel="noreferrer">TradingView</a> Lightweight Charts.</p>
     </div>
+  );
+}
+
+/** Price that flashes green/red on each live tick. */
+function LivePrice({ price, prev }: { price: number; prev?: number }) {
+  const dir = prev == null || price === prev ? "" : price > prev ? "text-up" : "text-down";
+  return <span key={price} className={"rise text-sm num " + (dir || "text-slate-300")} aria-live="polite">{usd(price)}</span>;
+}
+
+/** "● Live · 4s ago" while ticks arrive; "Delayed" when they stop. */
+function LiveBadge({ ts }: { ts?: number }) {
+  if (!ts) return <span className="text-xs font-medium text-slate-500">waiting for live prices…</span>;
+  const age = Math.max(0, Math.round(Date.now() / 1000 - ts));
+  const fresh = age < 45;
+  return (
+    <span className={"inline-flex items-center gap-1.5 text-xs font-medium " + (fresh ? "text-up" : "text-wire")}>
+      <span className={"h-1.5 w-1.5 rounded-full " + (fresh ? "animate-pulse bg-up" : "bg-wire")} />
+      {fresh ? `Live · ${age}s ago` : `Delayed · ${age}s`}
+    </span>
   );
 }

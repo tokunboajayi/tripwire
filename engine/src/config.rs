@@ -20,6 +20,10 @@ pub struct Cfg {
     /// CORS origin for the web app. Same-origin deploys don't need it.
     pub public_origin: Option<String>,
     pub mirror_user: Option<String>,
+    /// Live price refresh interval (seconds); trading decisions still run every 60s.
+    pub price_every_s: u64,
+    /// ElevenLabs API base (override only for tests).
+    pub elevenlabs_url: String,
 }
 
 impl Cfg {
@@ -39,6 +43,8 @@ impl Cfg {
             port: env_or("PORT", "8080").parse().unwrap_or(8080),
             public_origin: env_opt("PUBLIC_ORIGIN"),
             mirror_user: env_opt("MIRROR_USER"),
+            price_every_s: env_or("PRICE_EVERY_S", "10").parse::<u64>().unwrap_or(10).clamp(2, 60),
+            elevenlabs_url: env_or("ELEVENLABS_URL", "https://api.elevenlabs.io"),
         }
     }
 
