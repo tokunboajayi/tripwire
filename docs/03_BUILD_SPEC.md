@@ -142,7 +142,7 @@ FEE_BPS=25  SLIP_BPS=5
 APCA_API_KEY_ID= APCA_API_SECRET_KEY= APCA_PAPER_URL=https://paper-api.alpaca.markets
 AUTH0_DOMAIN= AUTH0_AUDIENCE= VITE_AUTH0_CLIENT_ID=
 ANTHROPIC_API_KEY=  INTERNAL_TOKEN=
-PUBLIC_ORIGIN=https://<domain>
+PUBLIC_ORIGIN=https://getwiththeprogram.study
 ```
 
 ## 14. Acceptance tests

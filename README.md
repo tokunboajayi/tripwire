@@ -2,7 +2,7 @@
 
 **Set your risk. Fund it. AI trades for you, switching between 3 trading "brains" to fit the market, with a Rust safety layer it can't override.**
 
-Hacklanta '26 · Fintech track · paper trading on live crypto · not financial advice.
+**Live: [https://getwiththeprogram.study](https://getwiththeprogram.study)** · Hacklanta '26 · Fintech track · paper trading on live crypto · not financial advice.
 
 ## The problem
 - Investing well is technical *and* emotional. Most people panic-sell the bottom and buy the top.

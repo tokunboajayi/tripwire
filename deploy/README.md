@@ -12,8 +12,8 @@ In that `.env` set at least:
 ```
 DEV=0
 INTERNAL_TOKEN=<openssl rand -hex 24>
-DOMAIN=yourdomain.com
-PUBLIC_ORIGIN=https://yourdomain.com
+DOMAIN=getwiththeprogram.study
+PUBLIC_ORIGIN=https://getwiththeprogram.study
 ```
 The engine refuses to start with the default token.
 
@@ -25,14 +25,14 @@ GoDaddy → My Products → your domain → **DNS** → Records:
 | A | `@` | `<server-ip>` | 600 |
 | CNAME | `www` | `@` | 1 hour |
 
-Delete any other `A @` record (GoDaddy's "Parked" one). Check with `dig +short yourdomain.com` → your server IP.
+Delete any other `A @` record (GoDaddy's "Parked" one). Check with `dig +short getwiththeprogram.study` → your server IP.
 
 ## 3 · Start it
 ```bash
 bash deploy/vultr-setup.sh https      # Docker, swap, firewall, build, start; Caddy gets the HTTPS cert
 ```
-Live at `https://yourdomain.com` (Caddy issues the certificate automatically once DNS points at the server).
-If you use Auth0, add `https://yourdomain.com` to the app's Allowed Callback, Logout and Web Origin URLs.
+Live at `https://getwiththeprogram.study` (Caddy issues the certificate automatically once DNS points at the server).
+If you use Auth0, add `https://getwiththeprogram.study` to the app's Allowed Callback, Logout and Web Origin URLs.
 
 ## 4 · Auto-deploy on every merge to main
 Repo → Settings → Secrets and variables → Actions → New repository secret:
@@ -41,7 +41,7 @@ Repo → Settings → Secrets and variables → Actions → New repository secre
 |---|---|
 | `VULTR_HOST` | server IP |
 | `VULTR_SSH_KEY` | a private key; put its public half in the server's `~/.ssh/authorized_keys` |
-| `SITE_URL` | `https://yourdomain.com` (optional, checked after each deploy) |
+| `SITE_URL` | `https://getwiththeprogram.study` (optional, checked after each deploy) |
 | `VULTR_USER` / `DEPLOY_DIR` | optional, default `root` / `~/tripwire` |
 
 Make a dedicated key: `ssh-keygen -t ed25519 -f vantrel_deploy -N ""`, then `ssh-copy-id -i vantrel_deploy.pub root@<server-ip>`, and paste the contents of `vantrel_deploy` into `VULTR_SSH_KEY`.
