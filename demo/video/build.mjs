@@ -27,17 +27,35 @@ const marks = {};
 SCENES.forEach((s, i) => { marks[s.id] = found[i] ?? wall[s.id]; });
 marks.__end = (found[SCENES.length] ?? wall.__end) + 0.6;
 console.log("scene starts in the video:", Object.entries(marks).map(([k, v]) => `${k}=${v.toFixed(1)}s`).join(" "), `(${Object.keys(found).length}/${SCENES.length + 1} stamps found)`);
-const voiced = SCENES.filter((s) => existsSync(`out/audio/${s.id}.mp3`));
+// Retime each scene's footage to its narration (0.75x-1.3x, too little to notice), then lay the lines back to back:
+// the voice never waits for the picture, so there are no dead pauses.
+const len = (f) => parseFloat(execFileSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", f]).toString());
+const timingEst = JSON.parse(readFileSync("out/timing.json", "utf8"));
+const BREATH = 0.3, LEAD = 0.2;
+const seg = SCENES.map((s, i) => {
+  const a = marks[s.id], b = i + 1 < SCENES.length ? marks[SCENES[i + 1].id] : marks.__end;
+  const voice = existsSync(`out/audio/${s.id}.mp3`) ? `out/audio/${s.id}.mp3` : null;
+  const spoken = voice ? len(voice) : timingEst[s.id] - 0.35;
+  const target = LEAD + spoken + (i + 1 < SCENES.length ? BREATH : 1.5);
+  const k = Math.min(1.3, Math.max(0.75, target / (b - a)));
+  return { s, a, b, voice, spoken, k, out: (b - a) * k };
+});
+let t = 0; for (const g of seg) { g.at = t; t += g.out; }
+const gaps = seg.slice(0, -1).map((g) => [g.s.id, g.out - LEAD - g.spoken]).filter(([, x]) => x > 1);
+console.log(gaps.length ? "Gaps over 1s (scene footage too long even at 1.3x): " + gaps.map(([id, x]) => `after ${id} ${x.toFixed(1)}s`).join(", ") : "No gaps over 1s: the narration flows.");
+
+const voiced = seg.filter((g) => g.voice);
 const args = ["-y", "-i", "out/raw/demo.webm"];
-voiced.forEach((s) => args.push("-i", `out/audio/${s.id}.mp3`));
+voiced.forEach((g) => args.push("-i", g.voice));
 const enc = ["-c:v", "libx264", "-preset", "medium", "-crf", "20", "-pix_fmt", "yuv420p", "-r", "30", "-movflags", "+faststart"];
+const vf = seg.map((g, i) => `[0:v]trim=start=${g.a.toFixed(3)}:end=${g.b.toFixed(3)},setpts=(PTS-STARTPTS)*${g.k.toFixed(4)}[v${i}]`).join(";")
+  + ";" + seg.map((_, i) => `[v${i}]`).join("") + `concat=n=${seg.length}:v=1:a=0[vout]`;
 if (voiced.length) {
-  // each line starts 0.4s into its scene; amix keeps lines at full volume (normalize=0)
-  const f = voiced.map((s, i) => `[${i + 1}:a]adelay=${Math.round((marks[s.id] + 0.4) * 1000)}|${Math.round((marks[s.id] + 0.4) * 1000)}[a${i}]`).join(";");
-  args.push("-filter_complex", `${f};${voiced.map((_, i) => `[a${i}]`).join("")}amix=inputs=${voiced.length}:normalize=0[aout]`,
-    "-map", "0:v", "-map", "[aout]", ...enc, "-c:a", "aac", "-b:a", "192k", "-t", String(marks.__end));
+  const af = voiced.map((g, i) => { const ms = Math.round((g.at + LEAD) * 1000); return `[${i + 1}:a]adelay=${ms}|${ms}[a${i}]`; }).join(";");
+  args.push("-filter_complex", `${vf};${af};${voiced.map((_, i) => `[a${i}]`).join("")}amix=inputs=${voiced.length}:normalize=0[aout]`,
+    "-map", "[vout]", "-map", "[aout]", ...enc, "-c:a", "aac", "-b:a", "192k", "-t", t.toFixed(2));
 } else {
-  args.push(...enc, "-an", "-t", String(marks.__end));
+  args.push("-filter_complex", vf, "-map", "[vout]", ...enc, "-an");
   console.log("No narration audio (set ELEVENLABS_API_KEY): making a captions-only video.");
 }
 args.push("out/vantrel-demo.mp4");
