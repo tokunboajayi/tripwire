@@ -1,5 +1,7 @@
 name: pages
-on: { push: { branches: [main], paths: ["landing/**"] }, workflow_dispatch: {} }
+# Optional static copy of the pitch page. The live site (landing + app) is served from the Vultr box on your domain.
+# Manual only: enable Settings → Pages → Source "GitHub Actions" first, then run from the Actions tab.
+on: { workflow_dispatch: {} }
 permissions: { contents: read, pages: write, id-token: write }
 jobs:
   deploy:

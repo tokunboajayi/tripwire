@@ -1,0 +1,49 @@
+name: deploy
+# After CI passes on main: SSH into the Vultr VM, pull, rebuild, verify the live site.
+# Repo secrets (Settings → Secrets and variables → Actions):
+#   VULTR_HOST     server IP
+#   VULTR_SSH_KEY  private key whose public half is in the server's ~/.ssh/authorized_keys
+#   VULTR_USER     optional, default root
+#   DEPLOY_DIR     optional, default ~/tripwire (where the repo is cloned on the server)
+#   SITE_URL       optional, e.g. https://vantrel.xyz — checked after deploy
+on:
+  workflow_run: { workflows: [ci], types: [completed], branches: [main] }
+  workflow_dispatch: {}
+concurrency: { group: deploy, cancel-in-progress: false }
+jobs:
+  deploy:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    env:
+      HOST: ${{ secrets.VULTR_HOST }}
+      KEY: ${{ secrets.VULTR_SSH_KEY }}
+      USER_: ${{ secrets.VULTR_USER || 'root' }}
+      DIR: ${{ secrets.DEPLOY_DIR || '~/tripwire' }}
+      SITE: ${{ secrets.SITE_URL }}
+    steps:
+      - name: check secrets
+        id: cfg
+        run: |
+          if [ -z "$HOST" ] || [ -z "$KEY" ]; then
+            echo "::notice::VULTR_HOST / VULTR_SSH_KEY not set; skipping deploy."; echo "ok=false" >> "$GITHUB_OUTPUT"
+          else echo "ok=true" >> "$GITHUB_OUTPUT"; fi
+      - name: deploy over ssh
+        if: steps.cfg.outputs.ok == 'true'
+        run: |
+          mkdir -p ~/.ssh && printf '%s\n' "$KEY" > ~/.ssh/id && chmod 600 ~/.ssh/id
+          ssh -i ~/.ssh/id -o StrictHostKeyChecking=accept-new "$USER_@$HOST" "DIR=$DIR bash -s" <<'REMOTE'
+          set -euo pipefail
+          cd "$(eval echo "$DIR")"
+          git fetch -q origin main && git checkout -q main && git reset -q --hard origin/main
+          PROFILE=""; grep -qE '^DOMAIN=.+' .env && PROFILE="--profile https"
+          grep -qE '^PHOTON_PROJECT_ID=.+' .env && PROFILE="$PROFILE --profile imessage"
+          docker compose --env-file .env -f deploy/docker-compose.yml $PROFILE up -d --build
+          for i in $(seq 1 100); do curl -fs localhost:8080/v1/health >/dev/null && break; sleep 3; done
+          curl -fs localhost:8080/v1/health && echo " engine healthy at $(git rev-parse --short HEAD)"
+          docker image prune -f >/dev/null
+          REMOTE
+      - name: check live site
+        if: steps.cfg.outputs.ok == 'true' && env.SITE != ''
+        run: |
+          for i in $(seq 1 30); do curl -fs "$SITE/v1/health" && break; sleep 5; done
+          curl -fs "$SITE/v1/health" && curl -fs "$SITE/" | grep -q '<title>Vantrel</title>'
