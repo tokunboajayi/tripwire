@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "tripwire-imessage",
+      "name": "vantrel-imessage",
       "dependencies": {
         "spectrum-ts": "12.10.1",
       },

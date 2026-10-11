@@ -4,7 +4,7 @@ import json
 import pytest
 import websockets
 
-from tripwire_tv_mcp.cdp import CDPClient, CDPError, js_str, pick_chart_target
+from vantrel_tv_mcp.cdp import CDPClient, CDPError, js_str, pick_chart_target
 
 
 async def fake_devtools(ws):

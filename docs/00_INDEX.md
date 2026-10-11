@@ -1,4 +1,4 @@
-# Tripwire — Doc Index (start here)
+# Vantrel — Doc Index (start here)
 
 **Set your risk. Fund it. AI trades for you — switching between 3 trading brains to fit the market, with a Rust safety layer it can't override.**
 Hacklanta '26 · Fintech track · team of 4 · paper trading on live crypto.
@@ -23,6 +23,6 @@ Hacklanta '26 · Fintech track · team of 4 · paper trading on live crypto.
 5. Checkpoint H12: Layer 1 live end-to-end.
 
 ## The 3 numbers to remember
-- 2025–26: market **−27.5%** → Tripwire **+0.4% to +1.5%**
-- Max drawdown 4 years: Tripwire **−17%** (conservative) vs buy & hold **−76%**
+- 2025–26: market **−27.5%** → Vantrel **+0.4% to +1.5%**
+- Max drawdown 4 years: Vantrel **−17%** (conservative) vs buy & hold **−76%**
 - Win rate **46%** vs break-even **36%** → a real edge, not a lucky streak (98 trades — small sample, say so)

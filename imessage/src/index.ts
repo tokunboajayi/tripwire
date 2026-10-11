@@ -1,4 +1,4 @@
-// Tripwire iMessage agent (Photon Spectrum). Texts you when Tripwire acts; text back to ask or control.
+// Vantrel iMessage agent (Photon Spectrum). Texts you when Vantrel acts; text back to ask or control.
 // Trust rules (enforced by the Rust engine, not here): this bridge can act only for accounts that linked a
 // phone themselves, and risk changes by text can only tighten. Kill / sell-everything need a YES reply.
 import { readFileSync, existsSync } from "node:fs";
@@ -12,7 +12,7 @@ for (const f of ["../.env", ".env"]) if (existsSync(f)) for (const line of readF
   process.env[m[1]] = m[2].replace(/\s+#.*$/, "").replace(/^["']|["']$/g, "");
 }
 const env = (k: string, d = "") => process.env[k] || d;
-const API = env("TRIPWIRE_API", "http://127.0.0.1:8080"), TOKEN = env("INTERNAL_TOKEN", "change-me");
+const API = env("VANTREL_API", "http://127.0.0.1:8080"), TOKEN = env("INTERNAL_TOKEN", "change-me");
 const POLL_MS = Number(env("IMESSAGE_POLL_S", "20")) * 1000;
 const cloud = !!(env("PHOTON_PROJECT_ID") && env("PHOTON_PROJECT_SECRET"));
 
@@ -35,7 +35,7 @@ async function answer(user: string, q: string): Promise<string> {
   const r = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST", headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
     body: JSON.stringify({ model: env("THESIS_MODEL", "claude-haiku-5-5"), max_tokens: 400,
-      system: "You are Tripwire, a paper-trading AI texting its user over iMessage. Answer in under 45 words, plain English, no jargon, no markdown. Use only the JSON data given. Never promise returns. If asked to raise risk, say that is dashboard-only.",
+      system: "You are Vantrel, a paper-trading AI texting its user over iMessage. Answer in under 45 words, plain English, no jargon, no markdown. Use only the JSON data given. Never promise returns. If asked to raise risk, say that is dashboard-only.",
       messages: [{ role: "user", content: `Data: ${ctx}\n\nQuestion: ${q}` }] }),
   });
   const j: any = await r.json();
@@ -47,12 +47,12 @@ const pending = new Map<string, { action: "kill" | "flatten"; exp: number }>(); 
 async function handle(phone: string, text: string): Promise<string> {
   const cmd = parse(text);
   if (cmd.kind === "link") {
-    try { await call("/internal/link", undefined, { method: "POST", body: JSON.stringify({ code: cmd.code, phone }) }); return "Linked ✅ I'll text you when Tripwire trades, blocks an order or pauses. Text \"help\" for commands."; }
+    try { await call("/internal/link", undefined, { method: "POST", body: JSON.stringify({ code: cmd.code, phone }) }); return "Linked ✅ I'll text you when Vantrel trades, blocks an order or pauses. Text \"help\" for commands."; }
     catch { return "That code didn't work or expired. Get a fresh one on the dashboard (Live tab → Text me)."; }
   }
   const phones: { user: string; phone: string }[] = await call("/internal/phones");
   const user = phones.find((p) => p.phone === phone)?.user;
-  if (!user) return "Hi, I'm Tripwire. To connect, open the dashboard, tap \"Text me\" and send: link 1234 (your code).";
+  if (!user) return "Hi, I'm Vantrel. To connect, open the dashboard, tap \"Text me\" and send: link 1234 (your code).";
   const act = (a: string) => call(`/v1/accounts/me/${a}`, user, { method: "POST" });
   switch (cmd.kind) {
     case "help": return HELP;
@@ -60,7 +60,7 @@ async function handle(phone: string, text: string): Promise<string> {
     case "pause": await act("pause"); return "Paused ⏸️ No new trades. Open positions keep their stops. Text \"resume\" to restart.";
     case "resume": await act("resume"); return "Resumed ▶️ Back to trading on your profile.";
     case "unlink": await act("unlink-phone"); return "Unlinked. You won't get texts anymore.";
-    case "riskier": return "Raising risk is dashboard-only. That's on purpose: a text can make Tripwire safer, never riskier.";
+    case "riskier": return "Raising risk is dashboard-only. That's on purpose: a text can make Vantrel safer, never riskier.";
     case "safer": {
       const a = await call("/v1/accounts/me", user); const next = saferProfile(a.profile);
       if (!next) return "You're already on Conservative, the safest profile.";
@@ -96,7 +96,7 @@ async function pollAlerts(send: (phone: string, text: string) => Promise<void>) 
 const app = cloud
   ? await Spectrum({ projectId: env("PHOTON_PROJECT_ID"), projectSecret: env("PHOTON_PROJECT_SECRET"), providers: [imessage.config()] })
   : await (Spectrum as any)({ providers: [terminal.config()] });
-console.log(`tripwire imessage agent: ${cloud ? "Photon iMessage" : "terminal (set PHOTON_PROJECT_ID/SECRET for iMessage)"} -> ${API}`);
+console.log(`vantrel imessage agent: ${cloud ? "Photon iMessage" : "terminal (set PHOTON_PROJECT_ID/SECRET for iMessage)"} -> ${API}`);
 
 const im: any = cloud ? imessage(app) : null;
 const send = async (phone: string, text: string) => {
@@ -111,7 +111,7 @@ const pi = process.argv.indexOf("--ping");
 if (pi > -1) {
   const to = process.argv[pi + 1];
   if (!to) { console.error("usage: bun src/index.ts --ping +1XXXXXXXXXX"); process.exit(1); }
-  try { await send(to, "Tripwire test: if you see this, outbound iMessage works. Reply \"help\"."); process.exit(0); }
+  try { await send(to, "Vantrel test: if you see this, outbound iMessage works. Reply \"help\"."); process.exit(0); }
   catch (e: any) { console.error("PING FAILED:", e?.message ?? e); process.exit(1); }
 }
 

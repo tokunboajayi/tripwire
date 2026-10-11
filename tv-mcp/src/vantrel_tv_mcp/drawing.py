@@ -1,6 +1,6 @@
-"""Draw Tripwire's decisions onto the TradingView chart.
+"""Draw Vantrel's decisions onto the TradingView chart.
 
-Every shape created here is tracked, so clear_tripwire only removes Tripwire's
+Every shape created here is tracked, so clear_vantrel only removes Vantrel's
 own drawings and never the user's.
 """
 
@@ -85,7 +85,7 @@ class Drawer:
         )
         return {"entity_id": shape_id, "text": label}
 
-    async def clear_tripwire(self) -> dict:
+    async def clear_vantrel(self) -> dict:
         # Tracked ids cover this session; the TAG prefix sweep covers drawings
         # left over from a previous server run.
         ids = list(self.created)

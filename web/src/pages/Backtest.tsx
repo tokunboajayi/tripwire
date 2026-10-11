@@ -14,8 +14,8 @@ export default function Backtest() {
   const h = bt.headline;
   const stats: [string, string, string][] = [
     ["Crypto market 2025–26", `${h.oos_market}%`, "text-down"],
-    ["Tripwire 2025–26 (held out)", `+${h.oos_conservative}% to +${h.oos_aggressive}%`, "text-up"],
-    ["Worst drop · Tripwire", `${h.maxdd_conservative}%`, "text-white"],
+    ["Vantrel 2025–26 (held out)", `+${h.oos_conservative}% to +${h.oos_aggressive}%`, "text-up"],
+    ["Worst drop · Vantrel", `${h.maxdd_conservative}%`, "text-white"],
     ["Worst drop · buy & hold", `${h.maxdd_buy_hold}%`, "text-down"],
     ["Win rate / break-even", `${h.win_rate}% / ${h.breakeven_win_rate}%`, "text-white"],
   ];

@@ -10,3 +10,6 @@ def _load_env():
             if v: os.environ.setdefault(k.strip(), v)
         break
 _load_env()
+# Pre-rebrand names (TRIPWIRE_*) still work.
+for _k, _v in list(os.environ.items()):
+    if _k.startswith("TRIPWIRE_"): os.environ.setdefault("VANTREL_" + _k[9:], _v)

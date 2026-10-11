@@ -12,7 +12,7 @@
 
 ## P0 · Session header (every new session)
 ```
-Project Tripwire. Source of truth: docs/03_BUILD_SPEC.md. My seat: <Owner|B|C|D>. Only touch my folders unless told. Code only.
+Project Vantrel. Source of truth: docs/03_BUILD_SPEC.md. My seat: <Owner|B|C|D>. Only touch my folders unless told. Code only.
 ```
 
 ## Owner · Engine

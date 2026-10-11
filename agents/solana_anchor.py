@@ -1,4 +1,4 @@
-"""Anchor Tripwire's audit-chain head on Solana (devnet by default) as a Memo transaction.
+"""Anchor Vantrel's audit-chain head on Solana (devnet by default) as a Memo transaction.
 Anyone can later recompute the chain from /v1/audit and compare it to the memo on-chain: edits to past
 trades or AI decisions change every later hash, so they can't be hidden. No keys needed on devnet."""
 import os, json, time, base64, pathlib, httpx
@@ -42,7 +42,7 @@ def anchor(seq: int, digest: str) -> str:
     kp = keypair()
     if not ensure_funds(kp): raise RuntimeError(f"no SOL on {kp.pubkey()}")
     bh = Hash.from_string(rpc("getLatestBlockhash", [{"commitment": "finalized"}])["value"]["blockhash"])
-    ix = Instruction(MEMO, f"tripwire:{seq}:{digest}".encode(), [AccountMeta(kp.pubkey(), True, True)])
+    ix = Instruction(MEMO, f"vantrel:{seq}:{digest}".encode(), [AccountMeta(kp.pubkey(), True, True)])
     tx = Transaction([kp], Message.new_with_blockhash([ix], kp.pubkey(), bh), bh)
     return rpc("sendTransaction", [base64.b64encode(bytes(tx)).decode(), {"encoding": "base64", "preflightCommitment": "confirmed"}])
 
@@ -57,4 +57,4 @@ def anchor_round(api: str, headers: dict):
 if __name__ == "__main__":
     import envload  # noqa: F401
     print("anchor wallet:", keypair().pubkey())
-    anchor_round(os.getenv("TRIPWIRE_API", "http://127.0.0.1:8080"), {"x-internal-token": os.getenv("INTERNAL_TOKEN", "change-me")})
+    anchor_round(os.getenv("VANTREL_API", "http://127.0.0.1:8080"), {"x-internal-token": os.getenv("INTERNAL_TOKEN", "change-me")})

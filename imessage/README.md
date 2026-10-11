@@ -1,10 +1,10 @@
-# imessage/ — Tripwire in iMessage (Photon Spectrum)
-Seat C (Ebere). Tripwire texts you when it acts; you text back to ask or control it.
+# imessage/ — Vantrel in iMessage (Photon Spectrum)
+Seat C (Ebere). Vantrel texts you when it acts; you text back to ask or control it.
 
 **Run:** `bun install && bun start` (reads `../.env`). Without `PHOTON_PROJECT_ID`/`PHOTON_PROJECT_SECRET` it runs the
 Spectrum **terminal** provider, so you can test the whole flow by typing (phone = `terminal`). Tests: `bun test`.
 
-**Link a phone:** dashboard → Live → "Text me" shows a 4-digit code → text `link 1234` to the Tripwire number.
+**Link a phone:** dashboard → Live → "Text me" shows a 4-digit code → text `link 1234` to the Vantrel number.
 
 | Text | Does |
 |---|---|

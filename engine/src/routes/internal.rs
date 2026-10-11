@@ -164,7 +164,7 @@ pub async fn link(State(app): State<S>, h: HeaderMap, Json(b): Json<LinkIn>) -> 
         .ok_or(err(StatusCode::NOT_FOUND, "bad or expired code"))?;
     for a in w.accounts.values_mut() { if a.phone.as_deref() == Some(b.phone.as_str()) { a.phone = None; } } // one phone, one account
     if let Some(a) = w.accounts.get_mut(&u) { a.phone = Some(b.phone.clone()); a.link_code = None; }
-    w.emit(Some(&u), "status", "iMessage linked: Tripwire will text you when it acts.".into(), json!({"imessage": true}));
+    w.emit(Some(&u), "status", "iMessage linked: Vantrel will text you when it acts.".into(), json!({"imessage": true}));
     ok(json!({"user": u}))
 }
 

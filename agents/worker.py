@@ -1,4 +1,4 @@
-"""Tripwire AI agents: Regime Agent (Sonnet), Thesis Agent (Haiku), daily digest.
+"""Vantrel AI agents: Regime Agent (Sonnet), Thesis Agent (Haiku), daily digest.
 The engine never waits on these. If anything fails, Rust keeps trading on its deterministic regime."""
 import envload  # noqa: F401  (loads ../.env)
 import os, json, re, time, hashlib, pathlib, datetime as dt
@@ -11,7 +11,7 @@ try:
 except Exception as e:  # solders missing → anchoring off, everything else runs
     solana_anchor = None; print('Solana anchoring off:', e)
 
-API = os.getenv("TRIPWIRE_API", "http://127.0.0.1:8080")
+API = os.getenv("VANTREL_API", "http://127.0.0.1:8080")
 H = {"x-internal-token": os.getenv("INTERNAL_TOKEN", "change-me")}
 SONNET = os.getenv("REGIME_MODEL", "claude-sonnet-5-5"); HAIKU = os.getenv("THESIS_MODEL", "claude-haiku-5-5")
 CACHE = pathlib.Path(os.getenv("AGENT_CACHE", ".cache")); CACHE.mkdir(exist_ok=True)

@@ -42,7 +42,7 @@ export default function Landing({ auth0, login, devLogin }: { auth0: boolean; lo
               Set your risk.<br />Fund it.<br /><span className="text-up">AI trades for you.</span>
             </h1>
             <p className="mt-5 max-w-xl text-lg text-slate-400">
-              Tripwire switches between three trading brains to fit the market, explains every move in plain English,
+              Vantrel switches between three trading brains to fit the market, explains every move in plain English,
               and runs behind a <span className="font-semibold text-wire">Rust safety layer the AI can't override</span>.
             </p>
             <div className="mt-8"><Start big /></div>
@@ -72,7 +72,7 @@ export default function Landing({ auth0, login, devLogin }: { auth0: boolean; lo
         {/* brains */}
         <section className="py-10">
           <h2 className="text-2xl font-bold text-white">Three brains and a shield</h2>
-          <p className="mt-2 max-w-2xl text-slate-400">Every human trader is stuck with one strategy. Tripwire reads the market regime and switches brains in real time.</p>
+          <p className="mt-2 max-w-2xl text-slate-400">Every human trader is stuck with one strategy. Vantrel reads the market regime and switches brains in real time.</p>
           <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {(Object.keys(REGIMES) as Regime[]).map((r) => {
               const g = REGIMES[r], b = BRAINS[g.brain];
@@ -115,7 +115,7 @@ export default function Landing({ auth0, login, devLogin }: { auth0: boolean; lo
           <h2 className="text-2xl font-bold text-white">Tested on real history, fees included</h2>
           <div className="mt-6 grid gap-4 sm:grid-cols-3">
             <div className="card p-6"><div className="label">Crypto market 2025–26</div><div className="mt-2 text-3xl font-bold text-down num">{h ? h.oos_market + "%" : "−27.5%"}</div></div>
-            <div className="card p-6"><div className="label">Tripwire 2025–26</div><div className="mt-2 text-3xl font-bold text-up num">{h ? `+${h.oos_conservative}% to +${h.oos_aggressive}%` : "+0.4% to +1.5%"}</div></div>
+            <div className="card p-6"><div className="label">Vantrel 2025–26</div><div className="mt-2 text-3xl font-bold text-up num">{h ? `+${h.oos_conservative}% to +${h.oos_aggressive}%` : "+0.4% to +1.5%"}</div></div>
             <div className="card p-6"><div className="label">Worst drop 2022–26</div><div className="mt-2 text-3xl font-bold text-white num">{h ? `${h.maxdd_conservative}%` : "−17.4%"} <span className="text-base font-medium text-slate-500">vs {h ? h.maxdd_buy_hold : -75.8}% buy & hold</span></div></div>
           </div>
           <p className="mt-3 text-sm text-slate-500">Small sample ({h?.trades ?? 98} trades). It trails buy & hold in strong bull runs; it's built to protect. <button className="text-sky-300 underline" onClick={() => navigate("/backtest")}>See the full backtest</button>.</p>
@@ -131,7 +131,7 @@ export default function Landing({ auth0, login, devLogin }: { auth0: boolean; lo
                 {[["Robinhood", "You (and your panic)", "Only if you do", "No", "No"], ["Acorns / robo-advisors", "A fixed index mix", "No", "n/a", "No"], ["Trading bots", "One fixed rule", "No", "Rarely", "No"]].map((r) => (
                   <tr key={r[0]}>{r.map((c, i) => <td key={i} className={"p-4 " + (i ? "text-slate-400" : "font-medium text-slate-200")}>{c}</td>)}</tr>
                 ))}
-                <tr className="bg-up/5">{["Tripwire", "AI, per market regime", "Yes: 3 brains + shield", "Yes, in Rust", "Every action"].map((c, i) => <td key={i} className={"p-4 font-semibold " + (i ? "text-up" : "text-white")}>{c}</td>)}</tr>
+                <tr className="bg-up/5">{["Vantrel", "AI, per market regime", "Yes: 3 brains + shield", "Yes, in Rust", "Every action"].map((c, i) => <td key={i} className={"p-4 font-semibold " + (i ? "text-up" : "text-white")}>{c}</td>)}</tr>
               </tbody>
             </table>
           </div>

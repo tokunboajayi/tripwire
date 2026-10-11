@@ -26,13 +26,13 @@ export default function Replay({ ticks, events, running, stocks, start }: { tick
         </div>
         {last && (
           <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3">
-            <div><div className="label">Tripwire</div><div className={"mt-1 text-3xl font-bold num " + (last.equity >= START ? "text-up" : "text-down")}>{ret(last.equity)}</div></div>
+            <div><div className="label">Vantrel</div><div className={"mt-1 text-3xl font-bold num " + (last.equity >= START ? "text-up" : "text-down")}>{ret(last.equity)}</div></div>
             <div><div className="label">Buy & hold</div><div className={"mt-1 text-3xl font-bold num " + (last.buy_hold >= START ? "text-up" : "text-down")}>{ret(last.buy_hold)}</div></div>
             <div><div className="label">{running ? "Replaying" : "Finished"}</div><div className="mt-1 text-lg font-semibold text-slate-300">{new Date(last.t * 1000).toLocaleDateString()}</div></div>
           </div>
         )}
         <div className="mt-6">
-          {ticks.length ? <Lines series={[{ name: "Tripwire", color: "#34D399", points: series("equity") }, { name: "Buy & hold", color: "#94A3B8", points: series("buy_hold"), thin: true }]} />
+          {ticks.length ? <Lines series={[{ name: "Vantrel", color: "#34D399", points: series("equity") }, { name: "Buy & hold", color: "#94A3B8", points: series("buy_hold"), thin: true }]} />
             : <Empty>Press play. The chart fills in as the engine trades through each day.</Empty>}
         </div>
       </section>

@@ -50,7 +50,7 @@ impl Account {
             goal_months: months, created: now, status: Status::Active,
             sleeves: syms.iter().map(|s| (s.clone(), Sleeve { cash: per, ..Default::default() })).collect(),
             trades: vec![], equity: vec![(now, cash)], events: VecDeque::new(), order_times: VecDeque::new(), day: now / 86400,
-            day_start_equity: cash, mcp_token: format!("tw_mcp_{}", uuid::Uuid::new_v4().simple()), digest: None,
+            day_start_equity: cash, mcp_token: format!("vt_mcp_{}", uuid::Uuid::new_v4().simple()), digest: None,
             last_block: HashMap::new(), phone: None, link_code: None,
         }
     }

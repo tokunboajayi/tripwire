@@ -1,7 +1,7 @@
 [project]
-name = "tripwire-tv-mcp"
+name = "vantrel-tv-mcp"
 version = "0.1.0"
-description = "TradingView MCP server for Tripwire: live chart context, regime detection, and trade overlays"
+description = "TradingView MCP server for Vantrel: live chart context, regime detection, and trade overlays"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -11,7 +11,7 @@ dependencies = [
 ]
 
 [project.scripts]
-tripwire-tv-mcp = "tripwire_tv_mcp.server:main"
+vantrel-tv-mcp = "vantrel_tv_mcp.server:main"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

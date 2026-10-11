@@ -1,4 +1,4 @@
-/** Tripwire mark: the price line (green) runs up to the wire (amber) and never crosses it. */
+/** Vantrel mark: the price line (green) runs up to the wire (amber) and never crosses it. */
 export function Mark({ size = 28, className = "" }: { size?: number; className?: string }) {
   return (
     <svg width={size} height={size} viewBox="0 0 64 64" fill="none" className={className} aria-hidden>
@@ -12,9 +12,9 @@ export function Mark({ size = 28, className = "" }: { size?: number; className?:
 
 export function Logo({ size = 28, onClick }: { size?: number; onClick?: () => void }) {
   return (
-    <button type="button" onClick={onClick} className="flex items-center gap-2.5 rounded-lg text-white" aria-label="Tripwire home">
+    <button type="button" onClick={onClick} className="flex items-center gap-2.5 rounded-lg text-white" aria-label="Vantrel home">
       <Mark size={size} />
-      <span className="text-[1.15rem] font-bold tracking-tight">tripwire</span>
+      <span className="text-[1.15rem] font-bold tracking-tight">vantrel</span>
     </button>
   );
 }

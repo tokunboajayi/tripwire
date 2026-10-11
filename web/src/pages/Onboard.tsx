@@ -101,7 +101,7 @@ export default function Onboard({ done, logout }: { done: () => void; logout: ()
                 </dl>
                 {annual > 0.5 && (
                   <p className="mt-4 flex gap-2 text-sm text-wire"><Icon n="alert" size={16} className="mt-0.5" />
-                    That goal needs about {(annual * 100).toFixed(0)}% a year. Tripwire is built to protect first, so expect it to take longer.</p>
+                    That goal needs about {(annual * 100).toFixed(0)}% a year. Vantrel is built to protect first, so expect it to take longer.</p>
                 )}
               </div>
             </>

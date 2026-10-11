@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Tripwire one-shot server setup (Ubuntu 22.04/24.04 on Vultr).
+# Vantrel one-shot server setup (Ubuntu 22.04/24.04 on Vultr).
 # Usage (from repo root, after .env is on the server):
 #   bash deploy/vultr-setup.sh            -> http://<server-ip>:8080
 #   bash deploy/vultr-setup.sh https      -> also HTTPS via Caddy (needs DOMAIN= in .env + DNS pointed here)

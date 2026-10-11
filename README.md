@@ -1,4 +1,4 @@
-# Tripwire
+# Vantrel
 
 **Set your risk. Fund it. AI trades for you, switching between 3 trading "brains" to fit the market, with a Rust safety layer it can't override.**
 
@@ -22,7 +22,7 @@ Hacklanta '26 · Fintech track · paper trading on live crypto · not financial 
 **Don't trust our track record, verify it.** Every trade, AI decision and blocked order is SHA-256 hash-chained and the chain head is written to Solana every 5 minutes. The Proof tab recomputes the chain in your browser and checks it against the blockchain.
 
 ## Results (real backtest, fees included)
-| | Tripwire (conservative) | Buy & hold |
+| | Vantrel (conservative) | Buy & hold |
 |---|---|---|
 | 2025–26 (held out) | **+0.4%** | **−27.5%** |
 | Worst drop, 2022–26 | **−17%** | **−76%** |

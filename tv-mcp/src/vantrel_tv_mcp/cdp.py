@@ -1,6 +1,6 @@
 """Minimal async Chrome DevTools Protocol client for TradingView Desktop.
 
-Only what Tripwire needs: find the chart tab, evaluate JS, take screenshots.
+Only what Vantrel needs: find the chart tab, evaluate JS, take screenshots.
 TradingView must be started with --remote-debugging-port (see tv_launch).
 """
 

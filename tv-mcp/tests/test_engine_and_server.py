@@ -1,9 +1,9 @@
 import httpx
 import pytest
 
-from tripwire_tv_mcp import server
-from tripwire_tv_mcp.drawing import Drawer, _unix_seconds
-from tripwire_tv_mcp.engine import EngineClient, EngineError, auth_headers, engine_symbol
+from vantrel_tv_mcp import server
+from vantrel_tv_mcp.drawing import Drawer, _unix_seconds
+from vantrel_tv_mcp.engine import EngineClient, EngineError, auth_headers, engine_symbol
 
 
 def engine_with(handler) -> EngineClient:
@@ -70,8 +70,8 @@ async def test_auth_header_is_sent():
 
 
 def test_auth_headers_prefers_mcp_token():
-    assert auth_headers({"TRIPWIRE_MCP_TOKEN": "t", "TRIPWIRE_DEV_USER": "u"}) == {"x-mcp-token": "t"}
-    assert auth_headers({"TRIPWIRE_DEV_USER": "u"}) == {"x-dev-user": "u"}
+    assert auth_headers({"VANTREL_MCP_TOKEN": "t", "VANTREL_DEV_USER": "u"}) == {"x-mcp-token": "t"}
+    assert auth_headers({"VANTREL_DEV_USER": "u"}) == {"x-dev-user": "u"}
     assert auth_headers({}) == {}
 
 
@@ -85,7 +85,7 @@ def test_engine_symbol(chart_sym, want):
 
 async def test_unauthorized_explains_fix():
     eng = engine_with(lambda r: httpx.Response(401, text="sign in"))
-    with pytest.raises(EngineError, match="TRIPWIRE_MCP_TOKEN"):
+    with pytest.raises(EngineError, match="VANTREL_MCP_TOKEN"):
         await eng.portfolio()
 
 
@@ -105,7 +105,7 @@ async def test_engine_unreachable_explains_fix():
     def handler(request):
         raise httpx.ConnectError("refused")
 
-    with pytest.raises(EngineError, match="TRIPWIRE_API_URL"):
+    with pytest.raises(EngineError, match="VANTREL_API_URL"):
         await engine_with(handler).portfolio()
 
 

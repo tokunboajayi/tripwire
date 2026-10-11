@@ -24,7 +24,7 @@
 
 ## 2. Repo layout
 ```
-tripwire/
+tripwire/            (repo name; product: Vantrel)
   engine/            Rust: src/{main,config,db,auth,routes/*,market,indicators,regime,brains,sizing,risk,executor,ledger,scheduler,replay,digest,sse}.rs
   agents/            Python: worker.py regime_agent.py thesis_agent.py prompts.py schemas.py cache.py
   mcp/               Python: server.py (read-only tools)
@@ -136,7 +136,7 @@ Agents use internal token only (not exposed publicly; bind /internal to docker n
 
 ## 13. Config / env
 ```
-DATABASE_URL=sqlite://tripwire.db
+DATABASE_URL=sqlite://vantrel.db
 SYMBOLS=BTC/USD,ETH/USD,SOL/USD        # add any; engine is symbol-agnostic
 FEE_BPS=25  SLIP_BPS=5
 APCA_API_KEY_ID= APCA_API_SECRET_KEY= APCA_PAPER_URL=https://paper-api.alpaca.markets

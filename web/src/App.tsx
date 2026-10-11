@@ -22,18 +22,18 @@ export default function App({ auth0 }: { auth0: boolean }) {
   useEffect(() => {
     if (a?.isAuthenticated) a.getAccessTokenSilently().then((t) => { setToken(t); setSignedIn(true); });
     else if (!auth0) {
-      const n = localStorage.getItem("tw_user");
+      const n = localStorage.getItem("vt_user");
       if (n) { setToken("dev:" + n); setSignedIn(true); }
     }
   }, [a?.isAuthenticated]);
 
-  const logout = () => { localStorage.removeItem("tw_user"); setToken(""); setSignedIn(false); navigate("/", true); a?.logout({ logoutParams: { returnTo: location.origin } }); };
+  const logout = () => { localStorage.removeItem("vt_user"); setToken(""); setSignedIn(false); navigate("/", true); a?.logout({ logoutParams: { returnTo: location.origin } }); };
 
   if (!signedIn) {
     if (path === "/backtest") return <PublicShell><Backtest /></PublicShell>;
     if (path !== "/") navigate("/", true);
     if (a?.isLoading) return <Splash />;
-    return <Landing auth0={auth0} login={() => a?.loginWithRedirect()} devLogin={(n) => { localStorage.setItem("tw_user", n); setToken("dev:" + n); setSignedIn(true); }} />;
+    return <Landing auth0={auth0} login={() => a?.loginWithRedirect()} devLogin={(n) => { localStorage.setItem("vt_user", n); setToken("dev:" + n); setSignedIn(true); }} />;
   }
   return <SignedIn path={path} logout={logout} />;
 }

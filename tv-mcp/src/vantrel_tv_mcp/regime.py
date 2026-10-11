@@ -1,4 +1,4 @@
-"""Deterministic market-regime classifier, ported from the Tripwire Rust engine.
+"""Deterministic market-regime classifier, ported from the Vantrel Rust engine.
 
 Mirrors `engine/src/engine.rs` (`compute` + `regime`) on the engine/v1-platform
 branch, which itself mirrors backtest/v2.py. Same indicators, same thresholds,

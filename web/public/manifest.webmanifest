@@ -1,6 +1,6 @@
 {
-  "name": "Tripwire",
-  "short_name": "Tripwire",
+  "name": "Vantrel",
+  "short_name": "Vantrel",
   "description": "Set your risk. AI trades. Rust keeps it safe.",
   "start_url": "/app",
   "scope": "/",

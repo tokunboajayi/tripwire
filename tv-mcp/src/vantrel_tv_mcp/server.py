@@ -1,10 +1,10 @@
-"""Tripwire TradingView MCP server.
+"""Vantrel TradingView MCP server.
 
-Gives Tripwire's agents (and anyone talking to Claude) eyes on a live
+Gives Vantrel's agents (and anyone talking to Claude) eyes on a live
 TradingView chart: prices, indicators, the current market regime and which
-strategy brain fits it, plus a way to draw Tripwire's trades onto the chart.
+strategy brain fits it, plus a way to draw Vantrel's trades onto the chart.
 
-It cannot trade. Orders only go through the Tripwire Rust risk gate.
+It cannot trade. Orders only go through the Vantrel Rust risk gate.
 """
 
 from __future__ import annotations
@@ -21,8 +21,8 @@ from .drawing import Drawer
 from .engine import EngineClient, engine_symbol
 from .regime import MIN_BARS, bars_from_dicts, classify
 
-INSTRUCTIONS = """Tripwire TradingView bridge. Read a live TradingView Desktop chart and
-show Tripwire's decisions on it. This server cannot place orders.
+INSTRUCTIONS = """Vantrel TradingView bridge. Read a live TradingView Desktop chart and
+show Vantrel's decisions on it. This server cannot place orders.
 
 Start here:
 - tv_health: is TradingView reachable? If not, tv_launch.
@@ -33,10 +33,10 @@ Start here:
 Chart: chart_state, chart_set_symbol, chart_set_timeframe, chart_set_type, quote_get,
 ohlcv_get (summary=true by default), study_values, pine_levels, pine_labels, chart_screenshot.
 
-Tripwire overlay: draw_trade_marker, draw_level, draw_thesis_note, plot_engine_trades,
-clear_tripwire_drawings (removes only Tripwire's own drawings).
+Vantrel overlay: draw_trade_marker, draw_level, draw_thesis_note, plot_engine_trades,
+clear_vantrel_drawings (removes only Vantrel's own drawings).
 
-Portfolio (read-only, from the Tripwire engine): portfolio_summary, why_log, engine_regimes.
+Portfolio (read-only, from the Vantrel engine): portfolio_summary, why_log, engine_regimes.
 
 Crypto symbols: use exchange-qualified tickers. BINANCE:BTCUSDT on the daily chart matches the
 engine's own data feed exactly; COINBASE:BTCUSD is close but not identical."""
@@ -45,7 +45,7 @@ READ = ToolAnnotations(readOnlyHint=True, openWorldHint=False)
 CHANGES_CHART = ToolAnnotations(readOnlyHint=False, destructiveHint=False, idempotentHint=True)
 DRAWS = ToolAnnotations(readOnlyHint=False, destructiveHint=False, idempotentHint=False)
 
-mcp = FastMCP("tripwire-tv", instructions=INSTRUCTIONS)
+mcp = FastMCP("vantrel-tv", instructions=INSTRUCTIONS)
 cdp = CDPClient()
 chart = Chart(cdp)
 drawer = Drawer(cdp)
@@ -155,7 +155,7 @@ async def chart_screenshot(region: Literal["chart", "full"] = "chart") -> Image:
     return Image(data=await cdp.screenshot(clip), format="png")
 
 
-# --- Tripwire: regime -------------------------------------------------------
+# --- Vantrel: regime -------------------------------------------------------
 
 async def _regime_now() -> dict:
     rows = await chart.bars(REGIME_BARS)
@@ -202,7 +202,7 @@ async def market_brief(symbol: str | None = None, timeframe: str = "D") -> dict:
     return await chart.with_symbol(symbol, timeframe, brief)
 
 
-# --- Tripwire: chart overlay -------------------------------------------------
+# --- Vantrel: chart overlay -------------------------------------------------
 
 @mcp.tool(annotations=DRAWS)
 async def draw_trade_marker(time: float, price: float, side: Literal["buy", "sell"], text: str = "") -> dict:
@@ -223,9 +223,9 @@ async def draw_thesis_note(time: float, price: float, text: str, brain: str | No
 
 
 @mcp.tool(annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=True, idempotentHint=True))
-async def clear_tripwire_drawings() -> dict:
+async def clear_vantrel_drawings() -> dict:
     """Remove the drawings this server created. The user's own drawings are left alone."""
-    return await drawer.clear_tripwire()
+    return await drawer.clear_vantrel()
 
 
 def trade_markers(trade: dict) -> list[tuple[float, float, str, str]]:
@@ -239,7 +239,7 @@ def trade_markers(trade: dict) -> list[tuple[float, float, str, str]]:
 
 @mcp.tool(annotations=DRAWS)
 async def plot_engine_trades(limit: int = 50) -> dict:
-    """Fetch Tripwire's closed trades for the chart symbol from the engine and draw entry/exit arrows."""
+    """Fetch Vantrel's closed trades for the chart symbol from the engine and draw entry/exit arrows."""
     state = await chart.state()
     symbol = state["symbol"]
     trades = await engine.trades(symbol=symbol, limit=limit)
@@ -247,11 +247,11 @@ async def plot_engine_trades(limit: int = 50) -> dict:
     return {"symbol": symbol, "engine_symbol": engine_symbol(symbol), "trades": len(trades), "drawn": len(drawn)}
 
 
-# --- Tripwire: portfolio (read-only) ----------------------------------------
+# --- Vantrel: portfolio (read-only) ----------------------------------------
 
 @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
 async def portfolio_summary() -> dict:
-    """Account equity, today's P&L, open positions, risk level and goal, from the Tripwire engine."""
+    """Account equity, today's P&L, open positions, risk level and goal, from the Vantrel engine."""
     return await engine.portfolio()
 
 

@@ -1,7 +1,7 @@
-"""Read-only bridge to the Tripwire engine (Rust service, engine/v1-platform).
+"""Read-only bridge to the Vantrel engine (Rust service, engine/v1-platform).
 
 Only GET requests, by design: the MCP server can explain and visualize what
-Tripwire did, but it can never place, change, or cancel an order. Orders go
+Vantrel did, but it can never place, change, or cancel an order. Orders go
 through the Rust risk gate and nowhere else.
 
 Engine routes used (all JSON, no envelope):
@@ -11,8 +11,8 @@ Engine routes used (all JSON, no envelope):
     GET /v1/market/regimes      -> [{symbol, price, regime, brain, deterministic, source, confidence, ...}]
 
 Auth (pick one):
-    TRIPWIRE_MCP_TOKEN  read-only token from the dashboard; sent as x-mcp-token
-    TRIPWIRE_DEV_USER   engine running with DEV=1; sent as x-dev-user
+    VANTREL_MCP_TOKEN  read-only token from the dashboard; sent as x-mcp-token
+    VANTREL_DEV_USER   engine running with DEV=1; sent as x-dev-user
 """
 
 from __future__ import annotations
@@ -22,8 +22,13 @@ from typing import Any, Mapping
 
 import httpx
 
+# Pre-rebrand names (TRIPWIRE_*) still work.
+for _k, _v in list(os.environ.items()):
+    if _k.startswith("TRIPWIRE_"):
+        os.environ.setdefault("VANTREL_" + _k[9:], _v)
+
 ENGINE_URL = (
-    os.environ.get("TRIPWIRE_API_URL") or os.environ.get("TRIPWIRE_API") or "http://127.0.0.1:8080"
+    os.environ.get("VANTREL_API_URL") or os.environ.get("VANTREL_API") or "http://127.0.0.1:8080"
 ).rstrip("/")
 TIMEOUT_S = 5.0
 MAX_LIMIT = 200
@@ -36,9 +41,9 @@ class EngineError(RuntimeError):
 
 def auth_headers(env: Mapping[str, str] | None = None) -> dict[str, str]:
     env = os.environ if env is None else env
-    if token := env.get("TRIPWIRE_MCP_TOKEN"):
+    if token := env.get("VANTREL_MCP_TOKEN"):
         return {"x-mcp-token": token}
-    if user := env.get("TRIPWIRE_DEV_USER"):
+    if user := env.get("VANTREL_DEV_USER"):
         return {"x-dev-user": user}
     return {}
 
@@ -74,16 +79,16 @@ class EngineClient:
                 resp = await http.get(url)
         except httpx.HTTPError as exc:
             raise EngineError(
-                f"Tripwire engine not reachable at {self.base_url} ({exc}). "
-                "Start the engine or set TRIPWIRE_API_URL."
+                f"Vantrel engine not reachable at {self.base_url} ({exc}). "
+                "Start the engine or set VANTREL_API_URL."
             ) from exc
         if resp.status_code == 401:
             raise EngineError(
-                f"GET {path} needs sign-in: set TRIPWIRE_MCP_TOKEN (dashboard Settings) "
-                "or TRIPWIRE_DEV_USER when the engine runs with DEV=1."
+                f"GET {path} needs sign-in: set VANTREL_MCP_TOKEN (dashboard Settings) "
+                "or VANTREL_DEV_USER when the engine runs with DEV=1."
             )
         if resp.status_code == 404 and path.startswith("/v1/accounts/me"):
-            raise EngineError("No Tripwire account for this user yet; create one in the dashboard first.")
+            raise EngineError("No Vantrel account for this user yet; create one in the dashboard first.")
         if resp.status_code != 200:
             raise EngineError(f"GET {path} returned {resp.status_code}: {resp.text[:200]}")
         return resp.json()

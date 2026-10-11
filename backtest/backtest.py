@@ -1,4 +1,4 @@
-"""Tripwire three-brain regime backtest. Long-only, next-bar-open fills, fees+slippage."""
+"""Vantrel three-brain regime backtest. Long-only, next-bar-open fills, fees+slippage."""
 import pandas as pd, numpy as np, sys, json
 FEE=0.0025; SLIP=0.0005  # per side (Alpaca crypto taker tier ~0.25%; verify)
 RISK=0.01; MAXPOS=0.5; WARM=1

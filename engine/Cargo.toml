@@ -1,5 +1,5 @@
 [package]
-name = "tripwire-engine"
+name = "vantrel-engine"
 version = "0.1.0"
 edition = "2021"
 

@@ -34,7 +34,7 @@ export function VerifyPanel() {
       if (!a) { push({ ok: null, text: "No Solana anchor yet (the anchor job runs every 5 minutes)." }); return; }
       const r = await fetch(RPC, { method: "POST", headers: { "content-type": "application/json" },
         body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "getTransaction", params: [a.signature, { encoding: "json", maxSupportedTransactionVersion: 0, commitment: "confirmed" }] }) }).then((r) => r.json());
-      const m = (r.result?.meta?.logMessages || []).join("\n").match(/tripwire:(\d+):([0-9a-f]{64})/);
+      const m = (r.result?.meta?.logMessages || []).join("\n").match(/(?:vantrel|tripwire):(\d+):([0-9a-f]{64})/);
       if (!m) { push({ ok: false, text: "Could not read the memo from Solana.", link: explorer(a.signature, a.cluster) }); return; }
       push({ ok: true, text: `Read from Solana ${a.cluster}: event #${m[1]} fingerprint ${m[2].slice(0, 16)}…`, link: explorer(a.signature, a.cluster) });
       const match = bySeq[+m[1]] === m[2];

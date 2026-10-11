@@ -5,19 +5,19 @@ services:
     env_file: ../.env
     # container paths win over local-dev paths in .env
     environment: { DATA_DIR: /data, WEB_DIR: /app/web, PORT: "8080" }
-    volumes: [ "tripwire-data:/data" ]
+    volumes: [ "tripwire-data:/data" ]   # original volume name kept so existing accounts + audit chain survive the rebrand
     ports: [ "8080:8080" ]
     restart: unless-stopped
   agents:
     build: ../agents
     env_file: ../.env
-    environment: { TRIPWIRE_API: "http://engine:8080" }
+    environment: { VANTREL_API: "http://engine:8080" }
     depends_on: [ engine ]
     restart: unless-stopped
   imessage:
     build: ../imessage
     env_file: ../.env
-    environment: { TRIPWIRE_API: "http://engine:8080" }
+    environment: { VANTREL_API: "http://engine:8080" }
     depends_on: [ engine ]
     restart: unless-stopped
     profiles: [ "imessage" ]   # needs PHOTON_PROJECT_ID/SECRET; start with --profile imessage

@@ -1,4 +1,4 @@
-//! Tripwire engine: indicators, regimes, 3 brains + shield, risk gate, ledger, API, SSE, replay.
+//! Vantrel engine: indicators, regimes, 3 brains + shield, risk gate, ledger, API, SSE, replay.
 //! Source of truth: docs/03_BUILD_SPEC.md. Module map follows spec §2.
 mod audit;
 mod auth;
@@ -64,6 +64,6 @@ async fn main() {
     scheduler::spawn(app.clone());
 
     let listener = tokio::net::TcpListener::bind(("0.0.0.0", app.cfg.port)).await.unwrap();
-    println!("tripwire engine on :{}{}", app.cfg.port, if app.cfg.dev { " (DEV sign-in enabled)" } else { "" });
+    println!("vantrel engine on :{}{}", app.cfg.port, if app.cfg.dev { " (DEV sign-in enabled)" } else { "" });
     axum::serve(listener, routes::router(app).into_make_service_with_connect_info::<std::net::SocketAddr>()).await.unwrap();
 }

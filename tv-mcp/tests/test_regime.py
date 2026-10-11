@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from tripwire_tv_mcp.regime import (
+from vantrel_tv_mcp.regime import (
     BRAIN_BY_REGIME,
     MIN_BARS,
     Bar,
@@ -143,7 +143,7 @@ def test_bars_from_dicts_handles_missing_volume():
 
 
 def test_same_resolution_normalizes_daily():
-    from tripwire_tv_mcp.chart import same_resolution
+    from vantrel_tv_mcp.chart import same_resolution
 
     assert same_resolution("D", "1D") and same_resolution("1W", "W")
     assert not same_resolution("5", "15") and same_resolution("60", "60")

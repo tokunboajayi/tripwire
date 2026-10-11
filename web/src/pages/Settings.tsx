@@ -5,7 +5,7 @@ import { Icon } from "../components/Icons";
 
 /** `/settings` — talk to your portfolio (MCP), voice alerts, iMessage, audit trail. */
 export default function Settings({ acct, cfg, voice, toggleVoice, reload, logout }: { acct: any; cfg: any; voice: boolean; toggleVoice: () => void; reload: () => void; logout: () => void }) {
-  const mcp = useMemo(() => JSON.stringify({ mcpServers: { tripwire: { command: "python", args: ["mcp/server.py"], env: { TRIPWIRE_API: location.origin, TRIPWIRE_MCP_TOKEN: acct.mcp_token } } } }, null, 2), [acct.mcp_token]);
+  const mcp = useMemo(() => JSON.stringify({ mcpServers: { vantrel: { command: "python", args: ["mcp/server.py"], env: { VANTREL_API: location.origin, VANTREL_MCP_TOKEN: acct.mcp_token } } } }, null, 2), [acct.mcp_token]);
   const [copied, setCopied] = useState(false);
   return (
     <div className="space-y-5">
@@ -47,7 +47,7 @@ function TextMe({ linked, number, reload }: { linked: boolean; number: string; r
         {linked ? <button className="btn" onClick={() => api("/v1/accounts/me/unlink-phone", "POST").then(reload)}>Stop texts</button>
           : !code && <button className="btn" onClick={() => api("/v1/accounts/me/link-code", "POST").then((r: any) => setCode(r.code))}><Icon n="connect" size={16} />Text me</button>}
       </div>
-      <p className="mt-2 text-sm text-slate-400">Tripwire texts you when it trades, blocks an order or pauses. A text can make it safer, never riskier.</p>
+      <p className="mt-2 text-sm text-slate-400">Vantrel texts you when it trades, blocks an order or pauses. A text can make it safer, never riskier.</p>
       {code && <p className="mt-3 text-sm text-slate-300">Text <code className="rounded bg-ink-800 px-1.5 py-0.5 font-mono text-white">link {code}</code>{number && <> to <b className="text-white">{number}</b></>} within 10 minutes.</p>}
     </section>
   );

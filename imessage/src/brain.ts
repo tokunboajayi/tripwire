@@ -27,7 +27,7 @@ export function saferProfile(p: string): string | null {
   const i = PROFILES.indexOf(p as any); return i > 0 ? PROFILES[i - 1] : null;
 }
 
-export const HELP = "Tripwire by text:\n• status — how you're doing\n• ask anything — \"why did you sell SOL?\"\n• pause / resume\n• safer — lower your risk one step\n• kill, sell everything (I'll ask you to confirm)\nRaising risk is dashboard-only, by design.";
+export const HELP = "Vantrel by text:\n• status — how you're doing\n• ask anything — \"why did you sell SOL?\"\n• pause / resume\n• safer — lower your risk one step\n• kill, sell everything (I'll ask you to confirm)\nRaising risk is dashboard-only, by design.";
 
 /** Events worth a text. Everything else stays in the dashboard why-log. */
 const ALERT_KINDS = new Set(["order", "gate_block", "auto_pause", "kill", "digest", "status"]);
@@ -44,7 +44,7 @@ export function alertText(e: Ev): string | null {
 /** Merge several alerts into one text so a busy minute doesn't spam the user. */
 export function bundle(lines: string[]): string | null {
   if (!lines.length) return null;
-  return lines.length === 1 ? lines[0] : `Tripwire update (${lines.length}):\n` + lines.slice(-5).join("\n");
+  return lines.length === 1 ? lines[0] : `Vantrel update (${lines.length}):\n` + lines.slice(-5).join("\n");
 }
 
 export function usd(n: number) { return (n < 0 ? "-$" : "$") + Math.abs(n).toLocaleString("en-US", { maximumFractionDigits: 0 }); }

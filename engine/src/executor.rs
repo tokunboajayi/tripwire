@@ -7,7 +7,7 @@ pub async fn mirror_order(app: &S, sym: &str, side: &str, qty: f64) {
     let (Ok(k), Ok(sec)) = (std::env::var("APCA_API_KEY_ID"), std::env::var("APCA_API_SECRET_KEY")) else { return };
     let url = format!("{}/v2/orders", env_or("APCA_PAPER_URL", "https://paper-api.alpaca.markets"));
     let body = json!({"symbol": format!("{sym}/USD"), "qty": format!("{qty:.6}"), "side": side, "type": "market", "time_in_force": "gtc",
-        "client_order_id": format!("tw-{}", uuid::Uuid::new_v4().simple())});
+        "client_order_id": format!("vt-{}", uuid::Uuid::new_v4().simple())});
     let res = app.http.post(url).header("APCA-API-KEY-ID", k).header("APCA-API-SECRET-KEY", sec).json(&body).send().await;
     let (msg, ok) = match res {
         Ok(r) if r.status().is_success() => {
