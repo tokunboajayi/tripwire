@@ -30,12 +30,18 @@ export default function App({ auth0 }: { auth0: boolean }) {
 
   // name sign-in (no Auth0): what the engine accepts decides the token kind
   const [pub, setPub] = useState<any>(null);
-  useEffect(() => { if (!auth0) api("/v1/config").then(setPub).catch(() => setPub({})); }, []);
+  useEffect(() => {
+    if (auth0) return;
+    let t: ReturnType<typeof setTimeout>;
+    const get = () => api("/v1/config").then(setPub).catch(() => { setPub((p: any) => p ?? { unreachable: true }); t = setTimeout(get, 5000); }); // keep trying until the engine answers
+    get();
+    return () => clearTimeout(t);
+  }, []);
   // DEV=1 (local) keeps plain dev names; a public engine gets guest ids with a per-browser secret
   const devNames = !!pub?.dev || pub?.guest === false;
   const nameToken = (id: string) => (devNames ? "dev:" : "guest:") + id;
   useEffect(() => {
-    if (auth0 || !pub) return;
+    if (auth0 || !pub || pub.unreachable) return;
     const n = localStorage.getItem("vt_user");
     if (!n) return;
     const id = devNames ? n : GUEST_ID.test(n) ? n : guestFor(n); // old name-only ids never worked on a public engine
@@ -54,7 +60,7 @@ export default function App({ auth0 }: { auth0: boolean }) {
     if (authErr) return <Problem title="Couldn't finish signing in" detail={authErr} action="Sign in again" onAction={() => a?.loginWithRedirect()} />;
     if (deciding || path !== "/") return <Splash />;
     // name sign-in needs a matching engine: an older engine (no `guest` in /v1/config) or GUEST_SIGNIN=0 would refuse it
-    const signin = auth0 ? "auth0" : pub?.dev ? "name" : pub?.guest === true ? "name" : pub?.guest === false ? "none" : "outdated";
+    const signin = auth0 ? "auth0" : pub?.unreachable ? "unreachable" : pub?.dev ? "name" : pub?.guest === true ? "name" : pub?.guest === false ? "none" : "outdated";
     return <Landing auth0={auth0} signin={signin} login={() => a?.loginWithRedirect()} devLogin={nameLogin} />;
   }
   return <SignedIn path={path} logout={logout} />;
