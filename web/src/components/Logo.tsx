@@ -14,7 +14,7 @@ export function Logo({ size = 28, onClick }: { size?: number; onClick?: () => vo
   return (
     <button type="button" onClick={onClick} className="flex items-center gap-2.5 rounded-lg text-white" aria-label="Vantrel home">
       <Mark size={size} />
-      <span className="text-[1.15rem] font-bold tracking-tight">vantrel</span>
+      <span className="text-[1.15rem] font-bold tracking-tight">Vantrel</span>
     </button>
   );
 }

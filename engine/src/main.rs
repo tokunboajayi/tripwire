@@ -64,6 +64,6 @@ async fn main() {
     scheduler::spawn(app.clone());
 
     let listener = tokio::net::TcpListener::bind(("0.0.0.0", app.cfg.port)).await.unwrap();
-    println!("vantrel engine on :{}{}", app.cfg.port, if app.cfg.dev { " (DEV sign-in enabled)" } else { "" });
+    println!("Vantrel engine on :{}{}", app.cfg.port, if app.cfg.dev { " (DEV sign-in enabled)" } else { "" });
     axum::serve(listener, routes::router(app).into_make_service_with_connect_info::<std::net::SocketAddr>()).await.unwrap();
 }
