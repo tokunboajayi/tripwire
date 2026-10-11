@@ -39,3 +39,13 @@ input[type="range"].risk::-moz-range-thumb { width: 22px; height: 22px; border-r
 @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 .rise { animation: rise .35s ease-out both; }
 @media (prefers-reduced-motion: reduce) { .rise { animation: none; } }
+
+/* narrated demo: caption lower-third */
+@keyframes wire-grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes caption-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes eq { 0%, 100% { transform: scaleY(0.35); } 50% { transform: scaleY(1); } }
+.caption-in { animation: caption-in 0.35s ease-out both; }
+.wire-grow { transform-origin: left; animation: wire-grow 0.7s cubic-bezier(.2,.8,.2,1) both; }
+.eq > span { display: block; width: 3px; border-radius: 2px; background: currentColor; transform-origin: bottom; animation: eq 0.9s ease-in-out infinite; }
+.eq > span:nth-child(2) { animation-delay: -0.3s; } .eq > span:nth-child(3) { animation-delay: -0.6s; } .eq > span:nth-child(4) { animation-delay: -0.15s; }
+@media (prefers-reduced-motion: reduce) { .caption-in, .wire-grow, .eq > span { animation: none; } }
