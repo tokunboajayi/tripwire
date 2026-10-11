@@ -9,7 +9,7 @@ pub struct Cfg {
     /// DEV=1 enables name-only sign-in (`X-Dev-User` / `dev:<name>` tokens). Never on a public box.
     pub dev: bool,
     /// Guest sign-in: a name plus a browser-generated random id (`guest:<name>.<16+ hex>`), so names can't be hijacked.
-    /// GUEST_SIGNIN=1/0; defaults on when Auth0 isn't configured. Paper money only, so this is safe on a public box.
+    /// GUEST_SIGNIN=1/0, default on (also alongside Auth0). Paper money only, so this is safe on a public box.
     pub guest: bool,
     pub internal_token: String,
     pub auth0_domain: Option<String>,
@@ -35,7 +35,7 @@ impl Cfg {
         Cfg {
             symbols: env_or("SYMBOLS", "BTC,ETH,SOL").split(',').map(|s| s.trim().split('/').next().unwrap().to_uppercase()).collect(),
             dev: env_or("DEV", "0") == "1",
-            guest: env_or("GUEST_SIGNIN", if env_opt("AUTH0_DOMAIN").is_some() { "0" } else { "1" }) == "1",
+            guest: env_or("GUEST_SIGNIN", "1") == "1",
             internal_token: env_or("INTERNAL_TOKEN", DEFAULT_INTERNAL_TOKEN),
             auth0_domain: env_opt("AUTH0_DOMAIN"),
             auth0_aud: env_or("AUTH0_AUDIENCE", ""),
