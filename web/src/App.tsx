@@ -8,7 +8,7 @@ import { StatusPill } from "./components/ui";
 import Landing from "./pages/Landing";
 import Onboard from "./pages/Onboard";
 import Dashboard from "./pages/Dashboard";
-import Replay, { startReplay, type ReplayTick } from "./pages/Replay";
+import Replay, { startReplay, stopReplay, type Demo, type ReplayTick } from "./pages/Replay";
 import Backtest from "./pages/Backtest";
 import Settings from "./pages/Settings";
 
@@ -74,7 +74,7 @@ function SignedIn({ path, logout }: { path: Route; logout: () => void }) {
       }
       if (k === "reasoning") return setReasoning((r) => ({ ...r, [ev.data.symbol]: ((r[ev.data.symbol] || "") + ev.msg).slice(-1200) }));
       if (k === "replay_tick") return setTicks((t) => [...t, ev.data]);
-      if (k === "replay_order") return setReplayEvents((e) => [ev, ...e].slice(0, 300));
+      if (k === "replay_order" || k === "replay_regime") return setReplayEvents((e) => [ev, ...e].slice(0, 400));
       if (k === "replay_done") return setReplayRunning(false);
       if (k === "regime") { setBanner(ev.msg); speak(ev.msg); setTimeout(() => setBanner(""), 10000); }
       if (k === "order" && String(ev.data?.reason ?? "").startsWith("AI thesis")) speak(ev.msg);
@@ -85,9 +85,19 @@ function SignedIn({ path, logout }: { path: Route; logout: () => void }) {
   }, [!!acct]);
 
   const toggleVoice = () => { setVoice(!voice); setV(!voice); };
-  const runReplay = (dataset: string) => {
+  const runReplay = (dataset: string, speed?: number) => {
     setTicks([]); setReplayEvents([]); setReplayRunning(true);
-    startReplay(dataset).catch((e) => { setReplayRunning(false); alert(e.message); });
+    startReplay(dataset, speed).catch(async (e) => {
+      if (e.status === 409) { await stopReplay(); return startReplay(dataset, speed).catch((e2) => { setReplayRunning(false); alert(e2.message); }); }
+      setReplayRunning(false); alert(e.message);
+    });
+  };
+  // dashboard "Watch it work": 2025 crypto at ~10 days/second (about a minute end to end)
+  const demo: Demo = {
+    running: replayRunning, ticks, events: replayEvents,
+    start: () => runReplay("crypto", 10),
+    stop: () => { stopReplay(); setReplayRunning(false); },
+    reset: () => { setTicks([]); setReplayEvents([]); },
   };
 
   if (missing) return <Onboard done={load} logout={logout} />;
@@ -104,11 +114,11 @@ function SignedIn({ path, logout }: { path: Route; logout: () => void }) {
                 className={"rounded-lg px-3 py-2 text-sm font-semibold transition " + (path === r ? "bg-ink-800 text-white" : "text-slate-400 hover:text-white")}>{l}</button>
             ))}
           </nav>
-          <div className="ml-auto"><StatusPill status={acct.status} kill={acct.kill_switch} /></div>
+          <div className="ml-auto flex items-center gap-2"><AuditBadge /><StatusPill status={acct.status} kill={acct.kill_switch} /></div>
         </div>
       </header>
 
-      {banner && (
+      {banner && path !== "/app" && (
         <div className="mx-auto mt-4 max-w-7xl px-4 sm:px-6">
           <div role="status" className="rise flex items-center gap-3 rounded-xl border border-sky-400/30 bg-sky-400/10 p-3 text-sm font-semibold text-sky-100">
             <Icon n="refresh" size={18} />{banner}
@@ -120,7 +130,7 @@ function SignedIn({ path, logout }: { path: Route; logout: () => void }) {
         {path === "/replay" ? <Replay ticks={ticks} events={replayEvents} running={replayRunning} stocks={!!cfg.stocks} start={runReplay} />
           : path === "/backtest" ? <Backtest />
           : path === "/settings" ? <Settings acct={acct} cfg={cfg} voice={voice} toggleVoice={toggleVoice} reload={load} logout={logout} />
-          : <Dashboard acct={acct} feed={feed} reasoning={reasoning} reload={load} voice={!!cfg.voice} live={live} />}
+          : <Dashboard acct={acct} feed={feed} reasoning={reasoning} reload={load} voice={!!cfg.voice} live={live} demo={demo} cfg={cfg} />}
       </main>
 
       {/* mobile tab bar */}
@@ -150,4 +160,21 @@ function PublicShell({ children }: { children: ReactNode }) {
 
 function Splash() {
   return <div className="grid min-h-screen place-items-center text-sm text-slate-400" role="status">Loading your portfolio…</div>;
+}
+
+/** Header proof badge: Solana-anchored track record, or the local hash chain until the first anchor lands. */
+function AuditBadge() {
+  const [s, setS] = useState<any>(null);
+  useEffect(() => {
+    const f = () => api("/v1/audit/status").then(setS).catch(() => {});
+    f(); const t = setInterval(f, 60000); return () => clearInterval(t);
+  }, []);
+  if (!s || !s.entries) return null;
+  const anchored = !!s.signature;
+  const cls = "hidden items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold sm:inline-flex ";
+  return anchored
+    ? <a className={cls + "border-violet-400/40 bg-violet-400/10 text-violet-200 hover:border-violet-300"} href={`https://explorer.solana.com/tx/${s.signature}?cluster=${s.cluster}`} target="_blank" rel="noreferrer"
+        title="Every trade and AI decision is fingerprinted; the chain head is written to Solana"><Icon n="chain" size={14} />Verified on Solana · {s.anchored_seq}</a>
+    : <button className={cls + (s.chain_ok ? "border-ink-600 text-slate-300 hover:text-white" : "border-down/50 text-down")} onClick={() => navigate("/settings")}
+        title="Tamper-evident hash chain of every trade and AI decision"><Icon n={s.chain_ok ? "check" : "alert"} size={14} />Audit chain {s.chain_ok ? "intact" : "BROKEN"} · {s.entries}</button>;
 }

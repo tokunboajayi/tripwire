@@ -46,7 +46,7 @@ export const REGIMES: Record<Regime, { label: string; color: string; brain: Brai
   RANGE: { label: "Calm", color: "#60A5FA", brain: "MR" },
   TREND_UP: { label: "Trending up", color: "#34D399", brain: "TREND" },
   HIGH_VOL: { label: "Volatile", color: "#F5B841", brain: "BREAKOUT" },
-  TREND_DOWN: { label: "Falling", color: "#94A3B8", brain: "SHIELD" },
+  TREND_DOWN: { label: "Falling", color: "#CBD5E1", brain: "SHIELD" },
 };
 export const BRAINS: Record<Brain, { label: string; does: string }> = {
   MR: { label: "Mean-Reversion", does: "Buys sharp dips, sells the bounce" },

@@ -57,7 +57,7 @@ pub fn summary(w: &World, a: &Account, owner: bool) -> Value {
     json!({"user": a.user, "profile": a.profile, "status": a.status, "limits": a.limits, "start_cash": a.start_cash, "equity": eq,
         "pnl_total": pnl, "pnl_today": eq - a.day_start_equity, "exposure": a.exposure(&px),
         "goal": {"amount": a.goal_amount, "months": a.goal_months, "progress": (pnl / a.goal_amount).max(0.), "created": a.created},
-        "cash": a.sleeves.values().map(|s| s.cash).sum::<f64>(), "digest": a.digest, "kill_switch": w.kill, "imessage": a.phone.is_some(),
+        "cash": a.sleeves.values().map(|s| s.cash).sum::<f64>(), "digest": a.digest, "kill_switch": w.kill,
         "stats": {"trades": n, "win_rate": if n > 0 { wins as f64 / n as f64 } else { 0. },
             "breakeven_win_rate": if aw + al > 0. { al / (aw + al) } else { 0. }},
         "positions": positions_json(w, a),
@@ -73,14 +73,13 @@ pub async fn me(State(app): State<S>, h: HeaderMap) -> R {
 #[derive(Deserialize)]
 pub struct Prof { profile: String }
 
-/// Risk slider. Users can pick any profile; a text message (iMessage bridge) can only tighten.
+/// Risk slider. Users can pick any profile up to aggressive.
 pub async fn set_profile(State(app): State<S>, h: HeaderMap, Json(b): Json<Prof>) -> R {
     let u = writer(&app, &h).await?;
     if !PROFILES.contains(&b.profile.as_str()) { return Err(err(StatusCode::BAD_REQUEST, "profile")) }
     let mut w = app.w.lock().unwrap();
     let a = w.accounts.get_mut(&u).ok_or(err(StatusCode::NOT_FOUND, "no account"))?;
-    let by_text = h.contains_key("x-act-as");
-    a.limits = set_limits(&a.limits, &Limits::profile(&b.profile), by_text).map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+    a.limits = set_limits(&a.limits, &Limits::profile(&b.profile), false).map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     a.profile = b.profile.clone();
     let lim = a.limits;
     w.emit(Some(&u), "limits", format!("Risk profile set to {}: risk {:.0}%/trade, max position {:.0}%, daily loss stop {:.0}%.",
@@ -128,7 +127,7 @@ pub async fn events(State(app): State<S>, h: HeaderMap, Query(q): Query<Limit>) 
     ok(json!(v.into_iter().rev().take(q.limit.unwrap_or(200).min(500)).collect::<Vec<_>>()))
 }
 
-/// pause · resume · kill · flatten · agent-loosen (demo) · link-code · unlink-phone
+/// pause · resume · kill · flatten · agent-loosen (demo)
 pub async fn action(State(app): State<S>, h: HeaderMap, Path(action): Path<String>) -> R {
     let u = writer(&app, &h).await?;
     let mut w = app.w.lock().unwrap();
@@ -137,12 +136,6 @@ pub async fn action(State(app): State<S>, h: HeaderMap, Path(action): Path<Strin
     let mut evs: Vec<(&str, String, Value)> = vec![];
     let mut mirror: Vec<(String, f64)> = vec![];
     match action.as_str() {
-        "link-code" => {
-            let code = format!("{:04}", uuid::Uuid::new_v4().as_u128() % 10000);
-            a.link_code = Some((code.clone(), now() + 600));
-            return ok(json!({"code": code, "expires_in": 600}));
-        }
-        "unlink-phone" => { a.phone = None; evs.push(("status", "iMessage unlinked.".into(), json!({}))) }
         "pause" => { a.status = Status::Paused; evs.push(("status", "Paused. Open positions keep their stops.".into(), json!({}))) }
         "resume" => { a.status = Status::Active; evs.push(("status", "Resumed.".into(), json!({}))) }
         "kill" => { a.status = Status::Killed; evs.push(("status", "Kill switch on: no new orders. Positions are held until you flatten.".into(), json!({}))) }
@@ -197,7 +190,7 @@ pub async fn start_replay(State(app): State<S>, h: HeaderMap, Json(b): Json<Repl
     let from = chrono::NaiveDate::parse_from_str(b.from.as_deref().unwrap_or("2025-01-01"), "%Y-%m-%d")
         .map_err(|_| err(StatusCode::BAD_REQUEST, "from"))?.and_hms_opt(0, 0, 0).unwrap().and_utc().timestamp();
     let speed = b.speed.unwrap_or(20.).clamp(1., 200.);
-    let (lim, data) = {
+    let (lim, data, gen) = {
         let mut w = app.w.lock().unwrap();
         if replay::running(w.replays.get(&u)) { return Err(err(StatusCode::CONFLICT, "replay running")) }
         let lim = w.accounts.get(&u).map(|a| a.limits).unwrap_or(Limits::profile("balanced"));
@@ -206,11 +199,22 @@ pub async fn start_replay(State(app): State<S>, h: HeaderMap, Json(b): Json<Repl
         } else {
             w.markets.iter().map(|(s, m)| (s.clone(), m.candles.clone(), m.inds.clone())).collect()
         };
-        w.replays.insert(u.clone(), Replay { status: "running".into(), ..Default::default() });
-        (lim, data)
+        let gen = w.replays.get(&u).map_or(0, |r| r.gen) + 1;
+        w.replays.insert(u.clone(), Replay { status: "running".into(), gen, ..Default::default() });
+        (lim, data, gen)
     };
-    replay::spawn(app.clone(), u, data, lim, from, speed);
+    replay::spawn(app.clone(), u, data, lim, from, speed, gen);
     ok(json!({"status": "running", "speed": speed}))
+}
+
+/// Stop the caller's running replay (the loop exits on its next day).
+pub async fn stop_replay(State(app): State<S>, h: HeaderMap) -> R {
+    let u = writer(&app, &h).await?;
+    let mut w = app.w.lock().unwrap();
+    let r = w.replays.get_mut(&u).filter(|r| r.status == "running").ok_or(err(StatusCode::NOT_FOUND, "no running replay"))?;
+    r.status = "stopped".into();
+    w.emit(Some(&format!("replay:{u}")), "replay_done", "Replay stopped.".into(), json!({"stopped": true}));
+    ok(json!({"status": "stopped"}))
 }
 
 pub async fn get_replay(State(app): State<S>, h: HeaderMap) -> R {
