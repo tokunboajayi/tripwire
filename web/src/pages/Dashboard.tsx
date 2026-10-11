@@ -334,7 +334,7 @@ function RiskWire({ acct }: { acct: any }) {
   const used = Math.min(1, loss / limit);
   const tone = used >= 1 ? "bg-down" : used > 0.6 ? "bg-wire" : "bg-slate-300";
   return (
-    <div className="mt-4" role="meter" aria-label="Daily loss against the auto-pause limit" aria-valuemin={0} aria-valuemax={limit * 100} aria-valuenow={+(loss * 100).toFixed(2)}>
+    <div className="mt-4" role="meter" aria-label="Daily loss against the auto-pause limit" aria-valuemin={0} aria-valuemax={limit * 100} aria-valuenow={+(Math.min(loss, limit) * 100).toFixed(2)} aria-valuetext={`today −${(loss * 100).toFixed(2)}%, pause at −${(limit * 100).toFixed(1)}%`}>
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 font-mono text-[11px] uppercase tracking-[0.12em]">
         <span className="whitespace-nowrap text-slate-400">Risk wire</span>
         <span className="whitespace-nowrap text-slate-300">today −{(loss * 100).toFixed(2)}% <span className="text-wire">/ pause at −{(limit * 100).toFixed(1)}%</span></span>
