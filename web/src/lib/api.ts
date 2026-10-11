@@ -2,6 +2,9 @@
 let token = ""; // "dev:<name>" in dev mode, Auth0 access token otherwise
 export const setToken = (t: string) => (token = t);
 export const getToken = () => token;
+/** Gets a fresh access token (Auth0 silent refresh); called once when the engine answers 401. */
+let refresher: (() => Promise<string>) | null = null;
+export const setRefresher = (f: typeof refresher) => (refresher = f);
 
 function headers(): Record<string, string> {
   const h: Record<string, string> = { "content-type": "application/json" };
@@ -11,7 +14,14 @@ function headers(): Record<string, string> {
 }
 
 export async function api<T = any>(path: string, method = "GET", body?: unknown): Promise<T> {
-  const r = await fetch(path, { method, headers: headers(), body: body ? JSON.stringify(body) : undefined });
+  const send = () => fetch(path, { method, headers: headers(), body: body ? JSON.stringify(body) : undefined, signal: AbortSignal.timeout(15000) });
+  let r: Response;
+  try {
+    r = await send();
+    if (r.status === 401 && refresher) { token = await refresher(); r = await send(); } // expired token: refresh once
+  } catch (e: any) {
+    throw Object.assign(new Error(e?.name === "TimeoutError" ? "The server took too long to answer" : "Can't reach the server"), { status: 0 });
+  }
   if (!r.ok) throw Object.assign(new Error((await r.text()) || r.statusText), { status: r.status });
   return r.json();
 }

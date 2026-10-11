@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
-import { api, setToken, setVoice, speak, stream, type Ev, type Live } from "./lib/api";
+import { api, setRefresher, setToken, setVoice, speak, stream, type Ev, type Live } from "./lib/api";
 import { navigate, usePath, type Route } from "./lib/router";
 import { Logo } from "./components/Logo";
 import { Icon, type IconName } from "./components/Icons";
@@ -19,8 +19,13 @@ export default function App({ auth0 }: { auth0: boolean }) {
   const path = usePath();
   const [signedIn, setSignedIn] = useState(false);
 
+  const [authErr, setAuthErr] = useState("");
   useEffect(() => {
-    if (a?.isAuthenticated) a.getAccessTokenSilently().then((t) => { setToken(t); setSignedIn(true); });
+    if (a?.isAuthenticated) {
+      setRefresher(() => a.getAccessTokenSilently({ cacheMode: "off" }));
+      a.getAccessTokenSilently().then((t) => { setToken(t); setSignedIn(true); setAuthErr(""); })
+        .catch((e) => setAuthErr(e?.message || "Sign-in failed"));
+    }
     else if (!auth0) {
       const n = localStorage.getItem("vt_user");
       if (n) { setToken("dev:" + n); setSignedIn(true); }
@@ -32,7 +37,8 @@ export default function App({ auth0 }: { auth0: boolean }) {
   if (!signedIn) {
     if (path === "/backtest") return <PublicShell><Backtest /></PublicShell>;
     if (path !== "/") navigate("/", true);
-    if (a?.isLoading) return <Splash />;
+    if (authErr) return <Problem title="Couldn't finish signing in" detail={authErr} action="Sign in again" onAction={() => a?.loginWithRedirect()} />;
+    if (a?.isLoading || a?.isAuthenticated) return <Splash />;
     return <Landing auth0={auth0} login={() => a?.loginWithRedirect()} devLogin={(n) => { localStorage.setItem("vt_user", n); setToken("dev:" + n); setSignedIn(true); }} />;
   }
   return <SignedIn path={path} logout={logout} />;
@@ -52,7 +58,9 @@ function SignedIn({ path, logout }: { path: Route; logout: () => void }) {
   const [voice, setV] = useState(false);
   const [live, setLive] = useState<Live>({});
 
-  const load = useCallback(() => api("/v1/accounts/me").then((x) => { setAcct(x); setMissing(false); }).catch((e) => e.status === 404 && setMissing(true)), []);
+  const [loadErr, setLoadErr] = useState<{ status: number; msg: string } | null>(null);
+  const load = useCallback(() => api("/v1/accounts/me").then((x) => { setAcct(x); setMissing(false); setLoadErr(null); })
+    .catch((e) => (e.status === 404 ? setMissing(true) : setLoadErr({ status: e.status, msg: e.message }))), []);
 
   useEffect(() => { load(); api("/v1/config").then(setCfg).catch(() => {}); }, []);
 
@@ -110,7 +118,16 @@ function SignedIn({ path, logout }: { path: Route; logout: () => void }) {
     reset: () => { setTicks([]); setReplayEvents([]); },
   };
 
+  // first load failed (engine restarting, network, expired sign-in): say so and keep retrying instead of spinning forever
+  useEffect(() => {
+    if (acct || !loadErr || loadErr.status === 401) return;
+    const t = setTimeout(load, 5000);
+    return () => clearTimeout(t);
+  }, [acct, loadErr]);
+
   if (missing) return <Onboard done={load} logout={logout} />;
+  if (!acct && loadErr?.status === 401) return <Problem title="Your session expired" detail="Sign in again to see your portfolio." action="Sign in again" onAction={logout} />;
+  if (!acct && loadErr) return <Problem title="Can't load your portfolio" detail={`${loadErr.msg}${loadErr.status ? ` (${loadErr.status})` : ""}. Retrying every 5 seconds…`} action="Retry now" onAction={load} />;
   if (!acct) return <Splash />;
 
   return (
@@ -171,6 +188,18 @@ function PublicShell({ children }: { children: ReactNode }) {
 
 function Splash() {
   return <div className="grid min-h-screen place-items-center text-sm text-slate-400" role="status">Loading your portfolio…</div>;
+}
+
+function Problem({ title, detail, action, onAction }: { title: string; detail: string; action: string; onAction: () => void }) {
+  return (
+    <div className="grid min-h-screen place-items-center px-4">
+      <div role="alert" className="card max-w-md p-6 text-center">
+        <h1 className="text-lg font-semibold text-white">{title}</h1>
+        <p className="mt-2 break-words text-sm text-slate-400">{detail}</p>
+        <button className="btn btn-primary mt-5" onClick={onAction}>{action}</button>
+      </div>
+    </div>
+  );
 }
 
 /** Header proof badge: Solana-anchored track record, or the local hash chain until the first anchor lands. */
