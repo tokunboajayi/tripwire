@@ -2,6 +2,7 @@
 
 > **Oct 11:** live-site bugs fixed and covered by tests in CI; see **F · Fix prompts** below. Open items are dashboard and server settings, not code.
 > **Status Oct 9, 22:45:** every prompt is built and tested, plus stock replay (B3/B4), Alpaca paper mirror (B5), ElevenLabs voice alerts, and the rule-based agent mode. Docker image verified.
+> **Status Oct 11:** F1–F9 fixes merged (guest sign-in, earned risk, single voice, narrated replay, cache headers). Final demo video in `demo/`. Full suite (cargo, web build, tv-mcp, e2e, live feed, public sign-in, Playwright UI incl. Auth0 mode) green in CI.
 > Needs real keys to finish: Auth0 tenant (A7/D6), `python data/fetch_stocks.py` (Alpaca), a live Claude run, an ElevenLabs key, then deploy to Vultr.
 > Use the prompts below to *extend* the code, e.g. `Read engine/src/<module>.rs. Add <feature> per BUILD_SPEC §x. Minimal diff.` (modules follow §2: indicators, regime, brains, risk, ledger, scheduler, routes/…)
 
