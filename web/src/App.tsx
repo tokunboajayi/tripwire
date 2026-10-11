@@ -137,7 +137,7 @@ function SignedIn({ path, logout }: { path: Route; logout: () => void }) {
       <nav className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-4 border-t border-ink-800 bg-ink-950/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden" aria-label="Main">
         {NAV.map(([r, l, ic]) => (
           <button key={r} onClick={() => navigate(r)} aria-current={path === r ? "page" : undefined}
-            className={"flex flex-col items-center gap-1 py-2.5 text-[11px] font-semibold " + (path === r ? "text-white" : "text-slate-500")}>
+            className={"flex flex-col items-center gap-1 py-2.5 text-[11px] font-semibold " + (path === r ? "text-white" : "text-slate-400")}>
             <Icon n={ic} size={20} />{l}
           </button>
         ))}

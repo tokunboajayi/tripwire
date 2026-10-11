@@ -74,7 +74,9 @@ export function RegimeChart({ data, markers = [], height = 380, live, stream }: 
     const c = base(el.current);
     chart.current = c;
     const big = data[data.length - 1].c >= 1000; // whole dollars for BTC/ETH, cents for cheaper coins
-    const s = c.addCandlestickSeries({ upColor: "#34D399", downColor: "#F87171", wickUpColor: "#34D399", wickDownColor: "#F87171", borderVisible: false,
+    // hollow up-candles, filled down-candles: direction readable without relying on green vs red
+    const s = c.addCandlestickSeries({ upColor: "rgba(0,0,0,0)", downColor: "#F87171", borderUpColor: "#34D399", borderDownColor: "#F87171", borderVisible: true,
+      wickUpColor: "#34D399", wickDownColor: "#F87171",
       priceFormat: { type: "price", precision: big ? 0 : 2, minMove: big ? 1 : 0.01 } });
     s.setData(data.map((d) => ({ time: d.t as UTCTimestamp, open: d.o, high: d.h, low: d.l, close: d.c })));
     series.current = s;

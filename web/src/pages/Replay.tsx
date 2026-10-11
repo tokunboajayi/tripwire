@@ -42,7 +42,7 @@ export default function Replay({ ticks, events, running, stocks, start }: { tick
         <section className="card p-5">
           <h2 className="mb-3 font-semibold text-white">Replay trades</h2>
           <ol className="max-h-80 space-y-1.5 overflow-y-auto text-sm">
-            {events.map((e) => <li key={e.id} className="text-slate-300"><span className="mr-2 text-xs text-slate-500">{new Date(e.ts * 1000).toLocaleTimeString()}</span>{e.msg}</li>)}
+            {events.map((e) => <li key={e.id} className="text-slate-300"><span className="mr-2 text-xs text-slate-400">{new Date(e.ts * 1000).toLocaleTimeString()}</span>{e.msg}</li>)}
           </ol>
         </section>
       )}

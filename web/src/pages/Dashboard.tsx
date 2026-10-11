@@ -103,7 +103,7 @@ export default function Dashboard({ acct, feed, reasoning, reload, voice, live =
             <div className="flex flex-wrap items-center gap-2" role="tablist" aria-label="Coin">
               {coins.map((c) => (
                 <button key={c.symbol} role="tab" aria-selected={sym === c.symbol} onClick={() => setSym(c.symbol)}
-                  className={"inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm font-semibold transition " + (sym === c.symbol ? "border-white/40 bg-white/10 text-white" : "border-ink-600 text-slate-400 hover:text-white")}>
+                  className={"inline-flex min-h-[36px] items-center gap-2 rounded-full border px-3.5 py-1.5 text-sm font-semibold transition " + (sym === c.symbol ? "border-white/40 bg-white/10 text-white" : "border-ink-600 text-slate-400 hover:text-white")}>
                   <i className="h-2 w-2 rounded-full" style={{ background: c.regime ? REGIMES[c.regime].color : "#475569" }} />
                   {c.symbol}
                   {c.price != null && (inDemo
@@ -115,7 +115,7 @@ export default function Dashboard({ acct, feed, reasoning, reload, voice, live =
             <div className="mt-4 label">{inDemo ? "Brain in charge on this day" : "Brain in charge now"}</div>
             {activeRegime ? (
               <>
-                <div key={activeRegime} className="rise mt-1 text-4xl font-extrabold tracking-tight sm:text-5xl" style={{ color: REGIMES[activeRegime].color }}>
+                <div key={activeRegime} className="rise mt-1 text-4xl font-extrabold tracking-tight sm:text-5xl" style={{ color: REGIMES[activeRegime].color, textShadow: `0 0 28px ${REGIMES[activeRegime].color}55` }}>
                   {BRAINS[REGIMES[activeRegime].brain].label}
                 </div>
                 <p className="mt-2 text-sm text-slate-300">
@@ -123,7 +123,7 @@ export default function Dashboard({ acct, feed, reasoning, reload, voice, live =
                   {!inDemo && sel && <span className="text-slate-400"> {sel.source === "ai" ? `Regime Agent agrees (${pct(sel.confidence)} confident).` : sel.source === "override_rejected" ? "AI overruled by Rust (REGIME_MISMATCH)." : "Rule-based call."}</span>}
                 </p>
               </>
-            ) : <div className="mt-1 text-4xl font-extrabold text-slate-600">…</div>}
+            ) : <div className="mt-1 text-4xl font-extrabold text-slate-400">…</div>}
           </div>
 
           <div className="lg:border-l lg:border-white/10 lg:pl-6">
@@ -132,7 +132,7 @@ export default function Dashboard({ acct, feed, reasoning, reload, voice, live =
                 <div className="label">2025 → {tick ? new Date(tick.t * 1000).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "…"}</div>
                 <ScoreRow label="Vantrel" value={tick ? tick.equity / DEMO_CASH - 1 : 0} />
                 <ScoreRow label="Just holding" value={tick ? tick.buy_hold / DEMO_CASH - 1 : 0} muted />
-                <p className="mt-2 text-xs text-slate-500">$10,000 paper, fees included. Same Rust engine, real daily prices, no look-ahead.</p>
+                <p className="mt-2 text-xs text-slate-400">$10,000 paper, fees included. Same Rust engine, real daily prices, no look-ahead.</p>
               </>
             ) : (
               <>
@@ -154,7 +154,7 @@ export default function Dashboard({ acct, feed, reasoning, reload, voice, live =
             {!inDemo && (
               <>
                 <button className="btn btn-primary px-5 py-3 text-base" onClick={startDemo}><Icon n="play" size={18} />Watch it survive 2025</button>
-                <p className="text-center text-xs text-slate-500">One-minute replay of the 2025 crypto drop, right here on this dashboard.</p>
+                <p className="text-center text-xs text-slate-400">One-minute replay of the 2025 crypto drop, right here on this dashboard.</p>
               </>
             )}
             {inDemo && demo.running && (
@@ -172,7 +172,7 @@ export default function Dashboard({ acct, feed, reasoning, reload, voice, live =
           </div>
         </div>
         {lastSwitch && (
-          <div key={lastSwitch.id + ":" + lastSwitch.ts} role="status" className="rise mt-5 flex items-center gap-2 rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm text-slate-200">
+          <div key={lastSwitch.id + ":" + lastSwitch.ts} role={inDemo ? undefined : "status"} className="rise mt-5 flex items-center gap-2 rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm text-slate-200">
             <Icon n="refresh" size={16} className="text-sky-300" />
             <span className="truncate">{inDemo && lastSwitch.data?.t ? new Date(lastSwitch.data.t * 1000).toLocaleDateString(undefined, { month: "short", day: "numeric" }) + " · " : ""}{lastSwitch.msg}</span>
           </div>
@@ -191,12 +191,12 @@ export default function Dashboard({ acct, feed, reasoning, reload, voice, live =
             </div>
           </div>
           {candles.length ? <RegimeChart data={chartData} stream={chartStream} markers={markers} live={inDemo ? undefined : live[sym]?.bar} />
-            : <div className="grid h-[380px] place-items-center text-sm text-slate-500">Loading chart…</div>}
+            : <div className="grid h-[380px] place-items-center text-sm text-slate-400">Loading chart…</div>}
         </div>
         <div className="card flex max-h-[470px] flex-col p-5">
           <h2 className="mb-3 font-semibold text-white">{inDemo ? "What it did, 2025 → today" : "Why-log"}</h2>
           <div className="-mr-2 min-h-0 flex-1 overflow-y-auto pr-2">
-            <WhyLog items={inDemo ? demoLog : feed} limit={60} filters={!inDemo} />
+            <WhyLog items={inDemo ? demoLog : feed} limit={60} filters={!inDemo} live={!inDemo} />
           </div>
         </div>
       </section>
@@ -206,7 +206,7 @@ export default function Dashboard({ acct, feed, reasoning, reload, voice, live =
         <div className="card flex flex-col p-5">
           <div className="flex items-center justify-between">
             <h2 className="font-semibold text-white">Why this brain</h2>
-            <span className="inline-flex items-center gap-1.5 text-xs text-violet-300"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-violet-400" />Regime Agent</span>
+            <span className="inline-flex items-center gap-1.5 text-xs text-violet-300"><span className="h-1.5 w-1.5 motion-safe:animate-pulse rounded-full bg-violet-400" />Regime Agent</span>
           </div>
           {activeRegime && <div className="mt-3"><BrainBadge regime={activeRegime} /></div>}
           {!inDemo && sel?.source === "ai" && sel.ai_reason && <p className="mt-3 rounded-lg bg-violet-400/10 p-3 text-sm text-violet-100">“{sel.ai_reason}”</p>}
@@ -214,8 +214,8 @@ export default function Dashboard({ acct, feed, reasoning, reload, voice, live =
           <div className="mt-3 flex-1">
             <div className="label">Live reasoning</div>
             {reasoning[sym]
-              ? <p className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap font-mono text-xs leading-relaxed text-slate-300" aria-live="polite">{reasoning[sym]}<span className="animate-pulse">▍</span></p>
-              : <p className="mt-2 text-sm text-slate-500">The agent's thinking streams here when it re-reads the market. If it's down, Rust keeps trading on its own rules.</p>}
+              ? <p className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap font-mono text-xs leading-relaxed text-slate-300">{reasoning[sym]}<span className="motion-safe:animate-pulse">▍</span></p>
+              : <p className="mt-2 text-sm text-slate-400">The agent's thinking streams here when it re-reads the market. If it's down, Rust keeps trading on its own rules.</p>}
           </div>
         </div>
 
@@ -226,7 +226,7 @@ export default function Dashboard({ acct, feed, reasoning, reload, voice, live =
           <button className="btn mt-4 w-full border-wire/40 text-wire hover:border-wire" disabled={!!busy} onClick={() => act("agent-loosen")} title="The AI asks to double its own risk after a loss. Rust refuses.">
             <Icon n="shieldOff" size={16} />Let the AI raise its own risk
           </button>
-          <p className="mt-2 text-xs text-slate-500">{PROFILES[acct.profile as Profile]?.blurb}</p>
+          <p className="mt-2 text-xs text-slate-400">{PROFILES[acct.profile as Profile]?.blurb}</p>
         </div>
 
         <div className="card flex flex-col gap-4 p-5">
@@ -272,7 +272,7 @@ export default function Dashboard({ acct, feed, reasoning, reload, voice, live =
           {acct.positions.length ? (
             <div className="mt-3 overflow-x-auto">
               <table className="w-full text-sm">
-                <thead className="text-left text-xs uppercase tracking-wider text-slate-500">
+                <thead className="text-left text-xs uppercase tracking-wider text-slate-400">
                   <tr><th className="py-2 font-medium">Coin</th><th className="font-medium">Brain</th><th className="text-right font-medium">P&L</th><th className="text-right font-medium">Stop</th></tr>
                 </thead>
                 <tbody className="divide-y divide-ink-700">
@@ -302,7 +302,7 @@ export default function Dashboard({ acct, feed, reasoning, reload, voice, live =
           </div>
         </div>
       </section>
-      <p className="text-center text-xs text-slate-600">Paper trading only. Not financial advice. Charts by <a className="underline" href="https://www.tradingview.com/" target="_blank" rel="noreferrer">TradingView</a> Lightweight Charts.</p>
+      <p className="text-center text-xs text-slate-400">Paper trading only. Not financial advice. Charts by <a className="underline" href="https://www.tradingview.com/" target="_blank" rel="noreferrer">TradingView</a> Lightweight Charts.</p>
     </div>
   );
 }
@@ -311,7 +311,7 @@ export default function Dashboard({ acct, feed, reasoning, reload, voice, live =
 function Hero({ regime, children }: { regime?: Regime; children: ReactNode }) {
   const c = regime ? REGIMES[regime].color : "#334155";
   return (
-    <section className="card relative overflow-hidden p-6 transition-colors duration-700" style={{ borderColor: c + "66", background: `radial-gradient(120% 140% at 0% 0%, ${c}26 0%, transparent 55%), #0B1220` }}>
+    <section className="card relative overflow-hidden p-6 motion-safe:transition-colors motion-safe:duration-700" style={{ borderColor: c + "66", background: `radial-gradient(120% 140% at 0% 0%, ${c}26 0%, transparent 55%), #0B1220` }}>
       {children}
     </section>
   );
@@ -352,17 +352,17 @@ function reportText(acct: any, markets: MarketRow[]) {
 /** Price that flashes green/red on each live tick. */
 function LivePrice({ price, prev, small }: { price: number; prev?: number; small?: boolean }) {
   const dir = prev == null || price === prev ? "" : price > prev ? "text-up" : "text-down";
-  return <span key={price} className={"rise num " + (small ? "text-xs font-medium " : "text-sm ") + (dir || "text-slate-400")} aria-live="polite">{usd(price, price >= 1000 ? 0 : 2)}</span>;
+  return <span key={price} className={"rise num " + (small ? "text-xs font-medium " : "text-sm ") + (dir || "text-slate-400")}>{usd(price, price >= 1000 ? 0 : 2)}</span>;
 }
 
 /** "● Live · 4s ago" while ticks arrive; "Delayed" when they stop. */
 function LiveBadge({ ts }: { ts?: number }) {
-  if (!ts) return <span className="text-xs font-medium text-slate-500">waiting for live prices…</span>;
+  if (!ts) return <span className="text-xs font-medium text-slate-400">waiting for live prices…</span>;
   const age = Math.max(0, Math.round(Date.now() / 1000 - ts));
   const fresh = age < 45;
   return (
     <span className={"inline-flex items-center gap-1.5 text-xs font-medium " + (fresh ? "text-up" : "text-wire")}>
-      <span className={"h-1.5 w-1.5 rounded-full " + (fresh ? "animate-pulse bg-up" : "bg-wire")} />
+      <span className={"h-1.5 w-1.5 rounded-full " + (fresh ? "motion-safe:animate-pulse bg-up" : "bg-wire")} />
       {fresh ? `Live · ${age}s ago` : `Delayed · ${age}s`}
     </span>
   );
