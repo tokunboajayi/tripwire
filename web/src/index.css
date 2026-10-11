@@ -1,0 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body { @apply bg-ink-950 text-slate-200 antialiased; font-feature-settings: "cv11", "ss01"; }
+  ::selection { @apply bg-up/30; }
+  :focus-visible { @apply outline outline-2 outline-offset-2 outline-up; }
+}
+
+@layer components {
+  .card { @apply rounded-2xl border border-ink-700/70 bg-ink-900 shadow-card; }
+  .label { @apply text-xs font-medium uppercase tracking-wider text-slate-400; }
+  .num { font-variant-numeric: tabular-nums; }
+  .btn { @apply inline-flex items-center justify-center gap-2 rounded-xl border border-ink-600 bg-ink-800 px-4 py-2.5 text-sm font-semibold text-slate-100 transition hover:border-slate-500 hover:bg-ink-700 disabled:cursor-not-allowed disabled:opacity-50; }
+  .btn-primary { @apply border-up bg-up text-ink-950 hover:border-emerald-300 hover:bg-emerald-300; }
+  .btn-danger { @apply border-down/50 bg-down/10 text-red-300 hover:border-down hover:bg-down/20; }
+  .btn-ghost { @apply border-transparent bg-transparent hover:border-ink-600 hover:bg-ink-800; }
+  .input { @apply w-full rounded-xl border border-ink-600 bg-ink-850 px-4 py-3 text-lg font-semibold text-white placeholder:text-slate-500 focus:border-up focus:outline-none; }
+}
+
+/* risk slider */
+input[type="range"].risk { -webkit-appearance: none; appearance: none; height: 8px; border-radius: 999px; background: linear-gradient(90deg, #60A5FA, #34D399 50%, #F5B841); }
+input[type="range"].risk::-webkit-slider-thumb { -webkit-appearance: none; width: 28px; height: 28px; border-radius: 999px; background: #fff; border: 4px solid #0B1220; box-shadow: 0 0 0 2px #fff, 0 6px 16px rgba(0,0,0,.5); cursor: grab; }
+input[type="range"].risk::-moz-range-thumb { width: 22px; height: 22px; border-radius: 999px; background: #fff; border: 4px solid #0B1220; box-shadow: 0 0 0 2px #fff; cursor: grab; }
+
+@keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.rise { animation: rise .35s ease-out both; }
+@media (prefers-reduced-motion: reduce) { .rise { animation: none; } }
