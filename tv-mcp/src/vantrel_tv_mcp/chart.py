@@ -27,6 +27,19 @@ def same_resolution(a: str | None, b: str | None) -> bool:
     return norm(a) == norm(b)
 
 
+def same_symbol(a: str | None, b: str | None) -> bool:
+    """Exact match, ignoring case; the exchange prefix only counts when both sides have one.
+
+    BTCUSD vs BTCUSDT or ES1! vs MES1! are different markets, so no substring matching.
+    """
+    if not a or not b:
+        return False
+    a, b = a.strip().upper(), b.strip().upper()
+    if ":" in a and ":" in b:
+        return a == b
+    return a.split(":")[-1] == b.split(":")[-1]
+
+
 def _round(v: float | None) -> float | None:
     return None if v is None else round(v, 8)
 
@@ -61,15 +74,19 @@ class Chart:
           }})()
         """)
 
-    async def wait_ready(self, symbol: str | None = None, resolution: str | None = None) -> bool:
-        """Ready = expected symbol/resolution shown and bar data stable for two polls."""
+    async def wait_ready(self, away_from: str | None = None, resolution: str | None = None) -> bool:
+        """Ready = the chart has left `away_from` (the old symbol), shows `resolution`,
+        and its bar data is stable for two polls.
+
+        Waiting for "not the old symbol" rather than "the name we asked for" copes with
+        TradingView resolving loose input (BTC -> BITSTAMP:BTCUSD).
+        """
         deadline = time.monotonic() + READY_TIMEOUT_S
         prev, stable = None, 0
-        want_sym = symbol.split(":")[-1].upper() if symbol else None
         while time.monotonic() < deadline:
             sig = await self._bar_signature()
             ok = sig is not None
-            if ok and want_sym and want_sym not in str(sig[0]).upper():
+            if ok and away_from and str(sig[0]).upper() == away_from.upper():
                 ok = False
             if ok and resolution and not same_resolution(sig[1], resolution):
                 ok = False
@@ -81,8 +98,9 @@ class Chart:
         return False
 
     async def set_symbol(self, symbol: str) -> dict:
+        before = await self.cdp.evaluate(f"{CHART}.symbol()")
         await self.cdp.evaluate(f"{CHART}.setSymbol({js_str(symbol)}, {{}})")
-        ready = await self.wait_ready(symbol=symbol)
+        ready = await self.wait_ready(away_from=None if same_symbol(symbol, before) else before)
         return {"symbol": await self.cdp.evaluate(f"{CHART}.symbol()"), "chart_ready": ready}
 
     async def set_timeframe(self, timeframe: str) -> dict:
@@ -211,7 +229,7 @@ class Chart:
         """Run fn() with the chart on symbol/timeframe, then put the chart back."""
         async with self.switch_lock:
             before = await self.state()
-            changed_sym = bool(symbol) and symbol.split(":")[-1].upper() not in before["symbol"].upper()
+            changed_sym = bool(symbol) and not same_symbol(symbol, before["symbol"])
             changed_tf = bool(timeframe) and not same_resolution(timeframe, before["resolution"])
             try:
                 if changed_sym:

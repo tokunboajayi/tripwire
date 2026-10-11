@@ -1,2 +1,1 @@
-def hello() -> str:
-    return "Hello from vantrel-tv-mcp!"
+"""Vantrel TradingView MCP server."""
