@@ -54,11 +54,10 @@ export default function Dashboard({ acct, feed, reasoning, reload, voice, live =
   const sel = markets.find((m) => m.symbol === sym);
   const activeRegime: Regime | undefined = inDemo ? (tick?.regimes?.[sym]?.regime as Regime | undefined) : sel?.regime;
 
-  const [chartData, chartStream] = useMemo(() => {
-    if (!inDemo) return [candles, undefined];
-    const before = candles.filter((c) => c.t < DEMO_FROM);
-    return [before.slice(-120), candles.filter((c) => c.t >= DEMO_FROM && tick && c.t <= tick.t)];
-  }, [candles, inDemo, tick?.t]);
+  // base stays referentially stable for the whole replay (a new array would rebuild the chart every tick);
+  // only the stream grows as replay days arrive
+  const chartData = useMemo(() => (inDemo ? candles.filter((c) => c.t < DEMO_FROM).slice(-120) : candles), [candles, inDemo]);
+  const chartStream = useMemo(() => (inDemo && tick ? candles.filter((c) => c.t >= DEMO_FROM && c.t <= tick.t) : undefined), [candles, inDemo, tick?.t]);
 
   const markers = useMemo<Marker[]>(() => {
     if (inDemo) {

@@ -153,20 +153,28 @@ export function EquityChart({ points, start, height = 200 }: { points: [number, 
   return <div ref={el} style={{ height }} role="img" aria-label="Portfolio value over time" />;
 }
 
-/** Multi-line % chart: series = {name, color, points:[[t, pct]]}. */
+/** Multi-line % chart: series = {name, color, points:[[t, pct]]}. Built once per set of series; data updates in place. */
 export function Lines({ series, height = 280 }: { series: { name: string; color: string; points: [number, number][]; thin?: boolean }[]; height?: number }) {
   const el = useRef<HTMLDivElement>(null);
-  const key = series.map((s) => s.name + s.points.length).join("|");
+  const lines = useRef<ISeriesApi<"Line">[]>([]);
+  const chart = useRef<IChartApi>();
+  const shape = series.map((s) => s.name).join("|");
+  const toData = (pts: [number, number][]) => {
+    const seen = new Set<number>();
+    return pts.filter(([t]) => !seen.has(t) && !!seen.add(t)).map(([t, v]) => ({ time: t as UTCTimestamp, value: v }));
+  };
   useEffect(() => {
     if (!el.current) return;
     const c = base(el.current);
-    for (const s of series) {
-      const l = c.addLineSeries({ color: s.color, lineWidth: s.thin ? 1 : 2, title: s.name, priceFormat: { type: "custom", formatter: (v: number) => v.toFixed(0) + "%" } });
-      const seen = new Set<number>();
-      l.setData(s.points.filter(([t]) => !seen.has(t) && !!seen.add(t)).map(([t, v]) => ({ time: t as UTCTimestamp, value: v })));
-    }
-    c.timeScale().fitContent();
-    return () => c.remove();
-  }, [key]);
+    chart.current = c;
+    lines.current = series.map((s) => c.addLineSeries({ color: s.color, lineWidth: s.thin ? 1 : 2, title: s.name,
+      priceFormat: { type: "custom", formatter: (v: number) => v.toFixed(0) + "%" } }));
+    return () => { lines.current = []; chart.current = undefined; c.remove(); };
+  }, [shape]);
+  const sizes = series.map((s) => s.points.length).join("|");
+  useEffect(() => {
+    series.forEach((s, i) => lines.current[i]?.setData(toData(s.points)));
+    chart.current?.timeScale().fitContent();
+  }, [shape, sizes]);
   return <div ref={el} style={{ height }} role="img" aria-label={"Line chart: " + series.map((s) => s.name).join(", ")} />;
 }

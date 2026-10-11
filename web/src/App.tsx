@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
 import { api, setToken, setVoice, speak, stream, type Ev, type Live } from "./lib/api";
 import { navigate, usePath, type Route } from "./lib/router";
@@ -48,6 +48,7 @@ function SignedIn({ path, logout }: { path: Route; logout: () => void }) {
   const [ticks, setTicks] = useState<ReplayTick[]>([]);
   const [replayEvents, setReplayEvents] = useState<Ev[]>([]);
   const [replayRunning, setReplayRunning] = useState(false);
+  const replayGen = useRef(0); // current replay run; events from older runs are ignored
   const [voice, setV] = useState(false);
   const [live, setLive] = useState<Live>({});
 
@@ -73,6 +74,7 @@ function SignedIn({ path, logout }: { path: Route; logout: () => void }) {
         return;
       }
       if (k === "reasoning") return setReasoning((r) => ({ ...r, [ev.data.symbol]: ((r[ev.data.symbol] || "") + ev.msg).slice(-1200) }));
+      if (k.startsWith("replay_") && ev.data?.gen != null && ev.data.gen !== replayGen.current) return; // stale run
       if (k === "replay_tick") return setTicks((t) => [...t, ev.data]);
       if (k === "replay_order" || k === "replay_regime") return setReplayEvents((e) => [ev, ...e].slice(0, 400));
       if (k === "replay_done") return setReplayRunning(false);
@@ -85,12 +87,20 @@ function SignedIn({ path, logout }: { path: Route; logout: () => void }) {
   }, [!!acct]);
 
   const toggleVoice = () => { setVoice(!voice); setV(!voice); };
-  const runReplay = (dataset: string, speed?: number) => {
+  const runReplay = async (dataset: string, speed?: number) => {
+    replayGen.current = -1; // until the server names the new run, ignore every replay event
     setTicks([]); setReplayEvents([]); setReplayRunning(true);
-    startReplay(dataset, speed).catch(async (e) => {
-      if (e.status === 409) { await stopReplay(); return startReplay(dataset, speed).catch((e2) => { setReplayRunning(false); alert(e2.message); }); }
-      setReplayRunning(false); alert(e.message);
-    });
+    try {
+      let r: any;
+      try { r = await startReplay(dataset, speed); }
+      catch (e: any) {
+        if (e.status !== 409) throw e;
+        await stopReplay(); // a run from another tab or before a refresh: replace it
+        r = await startReplay(dataset, speed);
+      }
+      replayGen.current = r.gen;
+      setTicks([]); setReplayEvents([]); setReplayRunning(true);
+    } catch (e: any) { setReplayRunning(false); alert(e.message); }
   };
   // dashboard "Watch it work": 2025 crypto at ~10 days/second (about a minute end to end)
   const demo: Demo = {

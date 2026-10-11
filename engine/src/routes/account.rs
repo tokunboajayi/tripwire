@@ -204,7 +204,7 @@ pub async fn start_replay(State(app): State<S>, h: HeaderMap, Json(b): Json<Repl
         (lim, data, gen)
     };
     replay::spawn(app.clone(), u, data, lim, from, speed, gen);
-    ok(json!({"status": "running", "speed": speed}))
+    ok(json!({"status": "running", "speed": speed, "gen": gen}))
 }
 
 /// Stop the caller's running replay (the loop exits on its next day).
@@ -213,7 +213,8 @@ pub async fn stop_replay(State(app): State<S>, h: HeaderMap) -> R {
     let mut w = app.w.lock().unwrap();
     let r = w.replays.get_mut(&u).filter(|r| r.status == "running").ok_or(err(StatusCode::NOT_FOUND, "no running replay"))?;
     r.status = "stopped".into();
-    w.emit(Some(&format!("replay:{u}")), "replay_done", "Replay stopped.".into(), json!({"stopped": true}));
+    let gen = r.gen;
+    w.emit(Some(&format!("replay:{u}")), "replay_done", "Replay stopped.".into(), json!({"stopped": true, "gen": gen}));
     ok(json!({"status": "stopped"}))
 }
 

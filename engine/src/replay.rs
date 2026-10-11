@@ -74,6 +74,7 @@ pub fn spawn(app: S, user: String, data: Dataset, lim: Limits, from: i64, speed:
                 let c = cs[i + 1];
                 if let Some((m, mut dta)) = step(s, &mut sleeves[k], cs, ind, i, &lim, &mut trades) {
                     dta["t"] = json!(c.t);
+                    dta["gen"] = json!(gen);
                     evs.push((m, dta));
                 }
                 let row = ind.row(i);
@@ -81,7 +82,7 @@ pub fn spawn(app: S, user: String, data: Dataset, lim: Limits, from: i64, speed:
                     let reg = regime(cs[i].c, &row);
                     if let Some(prev) = last_reg[k].filter(|p| *p != reg) {
                         switches.push((format!("{s}: {} → {}. Switching to the {} brain.", prev.label(), reg.label(), reg.brain().label()),
-                            json!({"symbol": s, "from": prev, "to": reg, "brain": reg.brain(), "t": c.t})));
+                            json!({"symbol": s, "from": prev, "to": reg, "brain": reg.brain(), "t": c.t, "gen": gen})));
                     }
                     last_reg[k] = Some(reg);
                     regimes.insert(s.clone(), json!({"regime": reg, "brain": reg.brain(), "price": c.c}));
@@ -98,7 +99,7 @@ pub fn spawn(app: S, user: String, data: Dataset, lim: Limits, from: i64, speed:
                 }
                 for (m, dta) in switches { w.emit(Some(&rid), "replay_regime", m, dta); }
                 for (m, dta) in evs { w.emit(Some(&rid), "replay_order", m, dta); }
-                w.emit(Some(&rid), "replay_tick", String::new(), json!({"t": t, "equity": eq, "buy_hold": bh, "regimes": regimes}));
+                w.emit(Some(&rid), "replay_tick", String::new(), json!({"t": t, "equity": eq, "buy_hold": bh, "regimes": regimes, "gen": gen}));
             }
             tokio::time::sleep(Duration::from_secs_f64(1. / speed)).await;
         }
@@ -107,7 +108,7 @@ pub fn spawn(app: S, user: String, data: Dataset, lim: Limits, from: i64, speed:
             Some(r) if r.gen == gen => r.status = "done".into(),
             _ => return,
         }
-        w.emit(Some(&rid), "replay_done", "Replay finished.".into(), json!({}));
+        w.emit(Some(&rid), "replay_done", "Replay finished.".into(), json!({"gen": gen}));
     });
 }
 
