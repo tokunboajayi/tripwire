@@ -14,6 +14,7 @@ Hacklanta '26 · Fintech track · team of 4 · paper trading on live crypto.
 | 06 | `06_ACCOUNTS.md` | Keys to grab | owner |
 | 07 | `07_REPO_AND_PAGES.md` | Repo, collaborators, README + landing prompts, sponsors | owner + D |
 | — | `../backtest/` | Working Python backtest, results, charts | B |
+| — | `../demo/` | **Final demo video** (`vantrel-demo.mp4`, 98 s, narrated) + `video/` script that rebuilds it | pitcher |
 
 ## Kick off (first 30 minutes)
 1. Done: GitHub repo created and team invited (the one-time setup scripts were removed after use).
@@ -22,7 +23,8 @@ Hacklanta '26 · Fintech track · team of 4 · paper trading on live crypto.
 4. Each seat opens Claude Code → **P0**, then their first prompt (05).
 5. Checkpoint H12: Layer 1 live end-to-end.
 
-## The 3 numbers to remember
+## The numbers to remember
+- Live in-app replay, Jan 2025 → Oct 2026: market **−27.8%** → Vantrel **+1.2%** (real prices, fees included)
 - 2025–26: market **−27.5%** → Vantrel **+0.4% to +1.5%**
 - Max drawdown 4 years: Vantrel **−17%** (conservative) vs buy & hold **−76%**
 - Win rate **46%** vs break-even **36%** → a real edge, not a lucky streak (98 trades — small sample, say so)
