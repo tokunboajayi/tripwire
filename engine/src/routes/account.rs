@@ -227,7 +227,7 @@ pub async fn voice(State(app): State<S>, Query(q): Query<VoiceQ>) -> R {
     user_from_token(&app, &q.token).await.ok_or(err(StatusCode::UNAUTHORIZED, "token"))?;
     let key = std::env::var("ELEVENLABS_API_KEY").ok().filter(|k| !k.is_empty()).ok_or(err(StatusCode::NOT_FOUND, "voice off"))?;
     let vid = env_or("ELEVENLABS_VOICE", "21m00Tcm4TlvDq8ikWAM");
-    let r = app.http.post(format!("https://api.elevenlabs.io/v1/text-to-speech/{vid}")).header("xi-api-key", key)
+    let r = app.http.post(format!("{}/v1/text-to-speech/{vid}", app.cfg.elevenlabs_url)).header("xi-api-key", key)
         .json(&json!({"text": q.text.chars().take(240).collect::<String>(), "model_id": "eleven_turbo_v2_5"}))
         .send().await.map_err(|e| err(StatusCode::BAD_GATEWAY, &e.to_string()))?;
     if !r.status().is_success() { return Err(err(StatusCode::BAD_GATEWAY, "elevenlabs")) }

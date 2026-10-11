@@ -1,4 +1,5 @@
-//! Engine loop (spec §4): every 60s pull prices, re-classify, manage exits/entries through the risk gate, mark to market.
+//! Engine loop (spec §4): prices refresh every PRICE_EVERY_S (default 10s) and stream to the dashboard;
+//! every 60s re-classify, manage exits/entries through the risk gate, mark to market.
 use crate::brains::{entry_signal, entry_text, exit_check, size};
 use crate::indicators::compute;
 use crate::ledger::{close_pos, Position, FEE, SLIP};
@@ -16,17 +17,24 @@ const REENTRY_COOLDOWN_S: i64 = 3600;
 /// Same gate code on the same symbol is logged at most once per window.
 const BLOCK_DEDUP_S: i64 = 600;
 
+/// Seconds between trading ticks (regimes, entries, exits, risk gate).
+const TRADE_EVERY_S: i64 = 60;
+
 pub fn spawn(app: S) {
     tokio::spawn(async move {
+        let mut last_trade = i64::MIN;
         loop {
-            run_once(&app).await;
-            tokio::time::sleep(Duration::from_secs(60)).await;
+            market::refresh(&app).await;
+            if now() - last_trade >= TRADE_EVERY_S {
+                last_trade = now();
+                trade_once(&app).await;
+            }
+            tokio::time::sleep(Duration::from_secs(app.cfg.price_every_s)).await;
         }
     });
 }
 
-async fn run_once(app: &S) {
-    market::refresh(app).await;
+async fn trade_once(app: &S) {
     let (accounts, audit, mirror) = {
         let mut w = app.w.lock().unwrap();
         tick(&mut w, now());

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
-import { createChart, ColorType, CrosshairMode, type IChartApi, type SeriesMarker, type Time, type UTCTimestamp } from "lightweight-charts";
-import { REGIMES, type Regime } from "../lib/api";
+import { createChart, ColorType, CrosshairMode, type IChartApi, type ISeriesApi, type SeriesMarker, type Time, type UTCTimestamp } from "lightweight-charts";
+import { REGIMES, type LiveBar, type Regime } from "../lib/api";
 
 const base = (el: HTMLElement): IChartApi => createChart(el, {
   // attribution is in the app footer (lightweight-charts NOTICE)
@@ -17,9 +17,15 @@ export type Candle = { t: number; o: number; h: number; l: number; c: number; re
 export type Marker = { t: number; side: "buy" | "sell"; text: string };
 const day = (t: number) => (Math.floor(t / 86400) * 86400) as UTCTimestamp;
 
-/** Daily candles with the regime shaded behind every bar, plus entry/exit markers. */
-export function RegimeChart({ data, markers = [], height = 360 }: { data: Candle[]; markers?: Marker[]; height?: number }) {
+/** Daily candles with the regime shaded behind every bar, plus entry/exit markers. `live` moves today's candle in real time. */
+export function RegimeChart({ data, markers = [], height = 360, live }: { data: Candle[]; markers?: Marker[]; height?: number; live?: LiveBar }) {
   const el = useRef<HTMLDivElement>(null);
+  const series = useRef<ISeriesApi<"Candlestick">>();
+  useEffect(() => {
+    const last = data[data.length - 1];
+    if (!series.current || !live || !last || live.t < last.t) return;
+    series.current.update({ time: live.t as UTCTimestamp, open: live.o, high: live.h, low: live.l, close: live.c });
+  }, [live, data]);
   useEffect(() => {
     if (!el.current || !data.length) return;
     const c = base(el.current);
@@ -33,6 +39,7 @@ export function RegimeChart({ data, markers = [], height = 360 }: { data: Candle
     c.priceScale("bg").applyOptions({ scaleMargins: { top: 0, bottom: 0 }, visible: false });
     const s = c.addCandlestickSeries({ upColor: "#34D399", downColor: "#F87171", wickUpColor: "#34D399", wickDownColor: "#F87171", borderVisible: false });
     s.setData(data.map((d) => ({ time: d.t as UTCTimestamp, open: d.o, high: d.h, low: d.l, close: d.c })));
+    series.current = s;
     const first = data[0].t;
     const ms: SeriesMarker<Time>[] = markers.filter((m) => m.t >= first).sort((a, b) => a.t - b.t).map((m) => ({
       time: day(m.t), position: m.side === "buy" ? "belowBar" : "aboveBar", color: m.side === "buy" ? "#34D399" : "#F5B841",
@@ -40,7 +47,7 @@ export function RegimeChart({ data, markers = [], height = 360 }: { data: Candle
     }));
     s.setMarkers(ms);
     c.timeScale().setVisibleLogicalRange({ from: Math.max(0, data.length - 180), to: data.length + 3 });
-    return () => c.remove();
+    return () => { series.current = undefined; c.remove(); };
   }, [data, markers]);
   return <div ref={el} style={{ height }} role="img" aria-label="Daily price chart, background shaded by market regime, with entry and exit markers" />;
 }
