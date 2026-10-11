@@ -48,6 +48,8 @@ jobs:
       - run: python tests/e2e.py .
       - name: live price stream + ElevenLabs voice (fake upstreams)
         run: python tests/live_feed.py engine/target/release/vantrel-engine
+      - name: sign-in on a production-configured engine (no DEV, no Auth0)
+        run: python tests/public_signin.py engine/target/release/vantrel-engine
       - if: failure()
         run: cat "$RUNNER_TEMP/engine.log"
   docker:

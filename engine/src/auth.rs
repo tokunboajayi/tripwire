@@ -19,10 +19,22 @@ async fn verify_jwt(app: &App, token: &str) -> Option<String> {
     decode::<Claims>(token, &DecodingKey::from_jwk(jwk).ok()?, &v).ok().map(|d| d.claims.sub)
 }
 
+/// `<name>.<16+ lowercase hex>`: the random part is the secret that makes a guest id unguessable.
+pub fn guest_id_ok(id: &str) -> bool {
+    match id.rsplit_once('.') {
+        Some((name, key)) => !name.trim().is_empty() && name.chars().count() <= 40 && !name.contains('|')
+            && key.len() >= 16 && key.len() <= 64 && key.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)),
+        None => false,
+    }
+}
+
 /// Resolve a bearer / query token to a user id.
 pub async fn user_from_token(app: &App, t: &str) -> Option<String> {
     if app.cfg.dev {
         if let Some(u) = t.strip_prefix("dev:") { return Some(format!("dev|{u}")) }
+    }
+    if app.cfg.guest {
+        if let Some(g) = t.strip_prefix("guest:") { return guest_id_ok(g).then(|| format!("guest|{g}")) }
     }
     verify_jwt(app, t).await
 }
@@ -53,4 +65,19 @@ pub async fn writer(app: &App, h: &HeaderMap) -> Result<String, ApiErr> {
 pub fn internal(app: &App, h: &HeaderMap) -> Result<(), ApiErr> {
     if h.get("x-internal-token").and_then(|v| v.to_str().ok()) == Some(app.cfg.internal_token.as_str()) { Ok(()) }
     else { Err(err(StatusCode::UNAUTHORIZED, "internal")) }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::guest_id_ok;
+    #[test]
+    fn guest_ids_need_a_random_key() {
+        assert!(guest_id_ok("AJ.0123456789abcdef"));
+        assert!(guest_id_ok("Mary Ann.0123456789abcdef0123"));
+        assert!(!guest_id_ok("AJ"));                       // bare name: anyone could claim it
+        assert!(!guest_id_ok("AJ.0123456789abcde"));       // 15 hex: too short
+        assert!(!guest_id_ok("AJ.0123456789ABCDEF"));      // uppercase not produced by the client
+        assert!(!guest_id_ok(".0123456789abcdef"));        // empty name
+        assert!(!guest_id_ok("a|b.0123456789abcdef"));     // no id separator smuggling
+    }
 }

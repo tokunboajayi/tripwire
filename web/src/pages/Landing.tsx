@@ -5,13 +5,15 @@ import { Logo, Mark } from "../components/Logo";
 import { Icon } from "../components/Icons";
 
 /** `/` — the pitch in one scroll, then sign in. */
-export default function Landing({ auth0, login, devLogin }: { auth0: boolean; login: () => void; devLogin: (name: string) => void }) {
+export default function Landing({ auth0, signin = "name", login, devLogin }: { auth0: boolean; signin?: string; login: () => void; devLogin: (name: string) => void }) {
   const [name, setName] = useState("");
   const [bt, setBt] = useState<any>(null);
   useEffect(() => { api("/v1/backtest").then(setBt).catch(() => {}); }, []);
   const h = bt?.headline;
 
-  const Start = ({ big }: { big?: boolean }) => auth0 ? (
+  const Start = ({ big }: { big?: boolean }) => signin === "none" ? (
+    <p role="alert" className="max-w-md rounded-md border border-wire/40 bg-wire/10 p-3 text-sm text-amber-100">Sign-in is turned off on this server. Set GUEST_SIGNIN=1 (or configure Auth0) and restart the engine.</p>
+  ) : auth0 ? (
     <button className={"btn btn-primary " + (big ? "px-6 py-3.5 text-base" : "")} onClick={login}>Get started <Icon n="chevron" size={18} /></button>
   ) : (
     <form className="flex w-full max-w-md gap-2" onSubmit={(e) => { e.preventDefault(); name.trim() && devLogin(name.trim()); }}>
