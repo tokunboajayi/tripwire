@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { api, BRAINS, pct, PROFILES, REGIMES, signedPct, signedUsd, speak, usd, type Brain, type Ev, type Live, type Profile, type Regime } from "../lib/api";
+import { api, BRAINS, onSpeaking, pct, PROFILES, REGIMES, signedPct, signedUsd, speak, stopSpeaking, usd, type Brain, type Ev, type Live, type Profile, type Regime } from "../lib/api";
 import { EquityChart, Lines, RegimeChart, type Candle, type Marker } from "../components/Charts";
 import { LimitsTable, RiskSlider } from "../components/RiskSlider";
 import { WhyLog } from "../components/WhyLog";
@@ -20,7 +20,10 @@ export default function Dashboard({ acct, feed, reasoning, reload, voice, live =
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, []); // "updated Ns ago"
   const [markets, setMarkets] = useState<MarketRow[]>([]);
   const [sym, setSym] = useState("");
-  const [voiceState, setVoiceState] = useState(""); // "", "busy", or the last voice error
+  const [voiceState, setVoiceState] = useState(""); // "" or the last voice error
+  const [speaking, setSpeaking] = useState(false);
+  useEffect(() => onSpeaking(setSpeaking), []);
+  useEffect(() => () => stopSpeaking(), []); // leaving the dashboard ends the report
   const [candles, setCandles] = useState<Candle[]>([]);
   const [trades, setTrades] = useState<any[]>([]);
   const [equity, setEquity] = useState<[number, number][]>([]);
@@ -260,8 +263,11 @@ export default function Dashboard({ acct, feed, reasoning, reload, voice, live =
           </div>
           {acct.digest && <p className="rounded-lg bg-ink-850 p-3 text-sm text-slate-300"><b className="text-white">Today: </b>{acct.digest}</p>}
           <div className="mt-auto grid gap-2">
-            {voice && <button className="btn" disabled={voiceState === "busy"} onClick={async () => { setVoiceState("busy"); setVoiceState((await speak(acct.digest || reportText(acct, markets), true)) ?? ""); }}><Icon n="volume" size={16} />{voiceState === "busy" ? "Loading voice…" : "Hear today's report"}</button>}
-            {voiceState && voiceState !== "busy" && <p role="alert" className="w-full text-xs text-down">{voiceState}</p>}
+            {voice && <button className="btn" aria-pressed={speaking} onClick={async () => {
+              if (speaking) return stopSpeaking(); // second click stops instead of starting a second voice
+              setVoiceState(""); setVoiceState((await speak(acct.digest || reportText(acct, markets), true)) ?? "");
+            }}><Icon n={speaking ? "mute" : "volume"} size={16} />{speaking ? "Stop" : "Hear today's report"}</button>}
+            {voiceState && <p role="alert" className="w-full text-xs text-down">{voiceState}</p>}
           </div>
         </div>
       </section>

@@ -56,7 +56,7 @@ jobs:
           (cd engine && DATA_DIR="$RUNNER_TEMP/vtp" INTERNAL_TOKEN="$(openssl rand -hex 24)" MARKET_URL=http://127.0.0.1:9 WEB_DIR="$GITHUB_WORKSPACE/web/dist" PORT=8098 \
             nohup ./target/release/vantrel-engine > "$RUNNER_TEMP/engine-prod.log" 2>&1 &)
           for i in $(seq 1 60); do curl -sf localhost:8098/v1/health >/dev/null && break; sleep 1; done
-          cd tests/ui && npm install --no-audit --no-fund && npx playwright-core install --with-deps chromium && U=http://localhost:8098 node journey.mjs && U=http://localhost:8098 node reload.mjs
+          cd tests/ui && npm install --no-audit --no-fund && npx playwright-core install --with-deps chromium && U=http://localhost:8098 node journey.mjs && U=http://localhost:8098 node reload.mjs && U=http://localhost:8098 node voice.mjs
       - name: Auth0 build where Auth0 rejects the login -> error shown, guests still get in
         run: |
           (cd web && VITE_AUTH0_DOMAIN=example.us.auth0.com VITE_AUTH0_CLIENT_ID=test VITE_AUTH0_AUDIENCE=https://api.test npx vite build --outDir "$RUNNER_TEMP/dist-auth0")
