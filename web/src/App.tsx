@@ -20,6 +20,9 @@ export default function App({ auth0 }: { auth0: boolean }) {
   const [signedIn, setSignedIn] = useState(false);
 
   const [authErr, setAuthErr] = useState("");
+  // Auth0 sends failures back as ?error=…&error_description=…; read once, then clean the address bar
+  const [oauthErr] = useState(() => { const q = new URLSearchParams(location.search); return q.get("error_description") || q.get("error") || ""; });
+  useEffect(() => { if (oauthErr) history.replaceState(null, "", location.pathname); }, []);
   useEffect(() => {
     if (a?.isAuthenticated) {
       setRefresher(() => a.getAccessTokenSilently({ cacheMode: "off" }));
@@ -27,11 +30,11 @@ export default function App({ auth0 }: { auth0: boolean }) {
         .catch((e) => setAuthErr(e?.message || "Sign-in failed"));
     }
   }, [a?.isAuthenticated]);
+  const auth0Error = authErr || oauthErr || a?.error?.message || "";
 
-  // name sign-in (no Auth0): what the engine accepts decides the token kind
+  // what the engine accepts decides name sign-in (also offered next to Auth0, so a broken Auth0 setup never locks people out)
   const [pub, setPub] = useState<any>(null);
   useEffect(() => {
-    if (auth0) return;
     let t: ReturnType<typeof setTimeout>;
     const get = () => api("/v1/config").then(setPub).catch(() => { setPub((p: any) => p ?? { unreachable: true }); t = setTimeout(get, 5000); }); // keep trying until the engine answers
     get();
@@ -39,29 +42,35 @@ export default function App({ auth0 }: { auth0: boolean }) {
   }, []);
   // DEV=1 (local) keeps plain dev names; a public engine gets guest ids with a per-browser secret
   const devNames = !!pub?.dev || pub?.guest === false;
+  const nameOK = !!pub?.dev || pub?.guest === true;
   const nameToken = (id: string) => (devNames ? "dev:" : "guest:") + id;
+  const hasSaved = !!localStorage.getItem("vt_user");
   useEffect(() => {
-    if (auth0 || !pub || pub.unreachable) return;
+    if (!pub || !nameOK || a?.isLoading || a?.isAuthenticated) return;
     const n = localStorage.getItem("vt_user");
     if (!n) return;
     const id = devNames ? n : GUEST_ID.test(n) ? n : guestFor(n); // old name-only ids never worked on a public engine
     localStorage.setItem("vt_user", id); setToken(nameToken(id)); setSignedIn(true);
-  }, [pub]);
+  }, [pub, a?.isLoading, a?.isAuthenticated]);
   const nameLogin = (name: string) => { const id = devNames ? name : guestFor(name); localStorage.setItem("vt_user", id); setToken(nameToken(id)); setSignedIn(true); };
 
-  const logout = () => { localStorage.removeItem("vt_user"); setToken(""); setSignedIn(false); navigate("/", true); a?.logout({ logoutParams: { returnTo: location.origin } }); };
+  const logout = () => {
+    localStorage.removeItem("vt_user"); setToken(""); setSignedIn(false); navigate("/", true);
+    if (a?.isAuthenticated) a.logout({ logoutParams: { returnTo: location.origin } });
+  };
 
   // still finding out who you are (Auth0 loading, engine config pending, or a saved name login about to be restored)
-  const deciding = !signedIn && (a?.isLoading || a?.isAuthenticated || (!auth0 && (!pub || !!localStorage.getItem("vt_user"))));
+  const deciding = !signedIn && (a?.isLoading || a?.isAuthenticated || !pub || (hasSaved && nameOK));
   useEffect(() => { if (!signedIn && !deciding && path !== "/" && path !== "/backtest") navigate("/", true); }, [signedIn, deciding, path]);
 
   if (!signedIn) {
     if (path === "/backtest") return <PublicShell><Backtest /></PublicShell>;
-    if (authErr) return <Problem title="Couldn't finish signing in" detail={authErr} action="Sign in again" onAction={() => a?.loginWithRedirect()} />;
-    if (deciding || path !== "/") return <Splash />;
+    if (deciding && !auth0Error) return <Splash />;
+    if (path !== "/") return <Splash />;
     // name sign-in needs a matching engine: an older engine (no `guest` in /v1/config) or GUEST_SIGNIN=0 would refuse it
-    const signin = auth0 ? "auth0" : pub?.unreachable ? "unreachable" : pub?.dev ? "name" : pub?.guest === true ? "name" : pub?.guest === false ? "none" : "outdated";
-    return <Landing auth0={auth0} signin={signin} login={() => a?.loginWithRedirect()} devLogin={nameLogin} />;
+    const name = pub?.unreachable ? "unreachable" : nameOK ? "name" : pub?.guest === false ? "none" : "outdated";
+    return <Landing auth0={auth0} signin={auth0 ? "auth0" : name} guest={auth0 && name === "name"} authError={auth0Error}
+      login={() => a?.loginWithRedirect()} devLogin={nameLogin} />;
   }
   return <SignedIn path={path} logout={logout} />;
 }

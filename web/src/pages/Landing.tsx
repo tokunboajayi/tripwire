@@ -4,13 +4,34 @@ import { navigate } from "../lib/router";
 import { Logo, Mark } from "../components/Logo";
 import { Icon } from "../components/Icons";
 
+/** The usual Auth0 dashboard fix for an error it sends back, if we recognise it. */
+function authFix(msg: string) {
+  const m = msg.toLowerCase();
+  if (m.includes("not authorized to access resource server") || m.includes("resource server"))
+    return "Applications → APIs → your API (the AUTH0_AUDIENCE) → Application Access → authorize this application for user access.";
+  if (m.includes("callback url")) return `Applications → your app → Allowed Callback URLs: add ${location.origin}`;
+  if (m.includes("service not found")) return "AUTH0_AUDIENCE must exactly match an API Identifier under Applications → APIs.";
+  if (m.includes("grant type") || m.includes("unauthorized_client")) return "Applications → your app → Advanced → Grant Types: enable Authorization Code and Refresh Token.";
+  if (m.includes("origin")) return `Applications → your app → Allowed Web Origins: add ${location.origin}`;
+  return "";
+}
+
 /** `/` — the pitch in one scroll, then sign in. */
-export default function Landing({ auth0, signin = "name", login, devLogin }: { auth0: boolean; signin?: string; login: () => void; devLogin: (name: string) => void }) {
+export default function Landing({ auth0, signin = "name", guest = false, authError = "", login, devLogin }: {
+  auth0: boolean; signin?: string; guest?: boolean; authError?: string; login: () => void; devLogin: (name: string) => void;
+}) {
   const [name, setName] = useState("");
   const [bt, setBt] = useState<any>(null);
   useEffect(() => { api("/v1/backtest").then(setBt).catch(() => {}); }, []);
   const h = bt?.headline;
 
+  const nameForm = (big?: boolean) => (
+    <form className="flex w-full max-w-md gap-2" onSubmit={(e) => { e.preventDefault(); name.trim() && devLogin(name.trim()); }}>
+      <label htmlFor={big ? "nm1" : "nm2"} className="sr-only">Your name</label>
+      <input id={big ? "nm1" : "nm2"} className="input py-3 text-base" placeholder="Your first name" autoComplete="given-name" value={name} onChange={(e) => setName(e.target.value)} />
+      <button className="btn btn-primary shrink-0 px-5" disabled={!name.trim()}>Get started</button>
+    </form>
+  );
   const start = (big?: boolean) => signin === "unreachable" ? (
     <p role="status" className="max-w-md rounded-md border border-ink-700 bg-ink-900 p-3 text-sm text-slate-300">Can't reach the server right now. Retrying every 5 seconds…</p>
   ) : signin === "outdated" ? (
@@ -18,14 +39,20 @@ export default function Landing({ auth0, signin = "name", login, devLogin }: { a
   ) : signin === "none" ? (
     <p role="alert" className="max-w-md rounded-md border border-wire/40 bg-wire/10 p-3 text-sm text-amber-100">Sign-in is turned off on this server. Set GUEST_SIGNIN=1 (or configure Auth0) and restart the engine.</p>
   ) : auth0 ? (
-    <button className={"btn btn-primary " + (big ? "px-6 py-3.5 text-base" : "")} onClick={login}>Get started <Icon n="chevron" size={18} /></button>
-  ) : (
-    <form className="flex w-full max-w-md gap-2" onSubmit={(e) => { e.preventDefault(); name.trim() && devLogin(name.trim()); }}>
-      <label htmlFor={big ? "nm1" : "nm2"} className="sr-only">Your name</label>
-      <input id={big ? "nm1" : "nm2"} className="input py-3 text-base" placeholder="Your first name" autoComplete="given-name" value={name} onChange={(e) => setName(e.target.value)} />
-      <button className="btn btn-primary shrink-0 px-5" disabled={!name.trim()}>Get started</button>
-    </form>
-  );
+    <div className="grid max-w-md gap-3">
+      {big && authError && (
+        <div role="alert" className="rounded-md border border-down/40 bg-down/10 p-3 text-sm text-red-100">
+          <b>Auth0 refused the sign-in:</b> {authError}
+          {authFix(authError) && <div className="mt-1 text-xs text-red-200/80">Fix in Auth0: {authFix(authError)}</div>}
+        </div>
+      )}
+      {!(authError && guest) && <button className={"btn btn-primary w-fit " + (big ? "px-6 py-3.5 text-base" : "")} onClick={login}>Get started <Icon n="chevron" size={18} /></button>}
+      {guest && <>
+        <p className="text-xs text-slate-400">{authError ? "Meanwhile, try it as a guest (paper money, no account needed):" : "Or try it as a guest, no account needed:"}</p>
+        {nameForm(big)}
+      </>}
+    </div>
+  ) : nameForm(big);
 
   return (
     <div className="min-h-screen">
