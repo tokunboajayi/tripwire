@@ -5,7 +5,7 @@ name: deploy
 #   VULTR_SSH_KEY  private key whose public half is in the server's ~/.ssh/authorized_keys
 #   VULTR_USER     optional, default root
 #   DEPLOY_DIR     optional, default ~/tripwire (where the repo is cloned on the server)
-#   SITE_URL       optional, e.g. https://vantrel.xyz — checked after deploy
+#   SITE_URL       optional, default https://getwiththeprogram.study — checked after deploy
 on:
   workflow_run: { workflows: [ci], types: [completed], branches: [main] }
   workflow_dispatch: {}
@@ -19,7 +19,7 @@ jobs:
       KEY: ${{ secrets.VULTR_SSH_KEY }}
       USER_: ${{ secrets.VULTR_USER || 'root' }}
       DIR: ${{ secrets.DEPLOY_DIR || '~/tripwire' }}
-      SITE: ${{ secrets.SITE_URL }}
+      SITE: ${{ secrets.SITE_URL || 'https://getwiththeprogram.study' }}
     steps:
       - name: check secrets
         id: cfg
