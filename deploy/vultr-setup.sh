@@ -32,4 +32,6 @@ for i in $(seq 1 60); do curl -fs localhost:8080/v1/health >/dev/null && break; 
 curl -fs localhost:8080/v1/health && echo
 curl -fs localhost:8080/v1/config && echo
 IP=$(curl -fs4 ifconfig.me || hostname -I | awk '{print $1}')
+DOM=$(grep -E '^DOMAIN=' .env | cut -d= -f2- | cut -d' ' -f1 || true)
+if [ -n "$PROFILE" ] && [ -n "$DOM" ]; then echo "== LIVE: https://$DOM  (point GoDaddy DNS A @ -> $IP; HTTPS cert is automatic)"; fi
 echo "== LIVE: http://$IP:8080   (logs: docker compose -f deploy/docker-compose.yml logs -f)"
