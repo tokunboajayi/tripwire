@@ -1,5 +1,6 @@
 # 05 · Prompt Guide for Claude Code (token-lean)
 
+> **Oct 11:** live-site bugs fixed and covered by tests in CI; see **F · Fix prompts** below. Open items are dashboard and server settings, not code.
 > **Status Oct 9, 22:45:** every prompt is built and tested, plus stock replay (B3/B4), Alpaca paper mirror (B5), ElevenLabs voice alerts, and the rule-based agent mode. Docker image verified.
 > Needs real keys to finish: Auth0 tenant (A7/D6), `python data/fetch_stocks.py` (Alpaca), a live Claude run, an ElevenLabs key, then deploy to Vultr.
 > Use the prompts below to *extend* the code, e.g. `Read engine/src/<module>.rs. Add <feature> per BUILD_SPEC §x. Minimal diff.` (modules follow §2: indicators, regime, brains, risk, ledger, scheduler, routes/…)
@@ -9,6 +10,7 @@
 - Always point at the spec section; never paste the spec.
 - Append: `Code only. No prose. Minimal diff.`
 - Fix loop: paste the error only → `Fix. Minimal diff.`
+- Live bug: `Reproduce on a production-configured engine first, then fix, then add the check to CI.`
 
 ## P0 · Session header (every new session)
 ```
@@ -45,6 +47,27 @@ Project Vantrel. Source of truth: docs/03_BUILD_SPEC.md. My seat: <Owner|B|C|D>.
 **D4** `Onboarding: risk slider with live preview of limits table (from 01_IDEA profile table), goal, amount → POST /accounts.`
 **D5** `Backtest page from GET /backtest: v2 curve vs buy & hold, table, caveats text. Replay page.`
 **D6** `Auth0 React SDK login/logout; attach token to fetch; SSE token in query.`
+
+## F · Fix prompts (live-site bugs, Oct 11)
+Each prompt states the symptom, the cause and the fix; then prove it with the test named. Rule: reproduce on a **production-configured engine** (no `DEV`, real `INTERNAL_TOKEN`) before fixing, and add the check to CI so it can't come back.
+
+**F1 · Spinner forever** `"Loading your portfolio…" never ends. web/src/App.tsx load() only handles 404. Show the real error with Retry (auto every 5s); 401 → sign-in screen; refresh Auth0 token once on 401; 15s fetch timeout. Verify: kill the engine → error screen; restart → recovers without reload.`
+**F2 · "Session expired" on Get started** `Name sign-in sends dev:<name>, which a public engine (DEV unset) rejects. Add guest ids guest:<name>.<16+ hex> (key made in the browser, never typed): engine auth.rs + config GUEST_SIGNIN (default on, also next to Auth0); /v1/config reports guest + signin. Old saved names upgrade themselves. Verify: tests/public_signin.py.`
+**F3 · Name box loses focus after each letter** `Landing's sign-up form is an inline component re-created every render. Render it in place ({start()} not <Start/>). Verify: tests/ui/journey.mjs types one key at a time.`
+**F4 · Wrong page after refresh / deep link** `navigate() runs during render before usePath listens. Redirect in an effect only once sign-in is known; usePath re-syncs on mount. Verify: refresh on /settings and /replay stays put; sign out → same name → portfolio back.`
+**F5 · Get started "reloads" the page** `It's Get started → 401 → "Sign in again" → start page, from a web/engine mismatch. Page must detect an older engine (no guest in /v1/config) and say "redeploy with --build"; a refused name sign-in quotes the engine's reason; a failed config fetch says "can't reach the server" and retries (never "outdated"). Verify: tests/ui/reload.mjs (click, Enter, bottom form, iPhone tap, Android Go).`
+**F6 · Auth0 loop: back to landing with ?error=…** `Read error/error_description from the redirect and useAuth0().error; show "Auth0 refused the sign-in: …" with the dashboard fix; clean the URL; offer guest sign-in beside Auth0; guest Sign out must not redirect to Auth0. Verify: tests/ui/auth0.mjs (Auth0-mode build, rejected login).`
+**F7 · Old page after every deploy** `index.html has no Cache-Control so browsers keep the last release. Engine: no-cache for the page and SPA routes, immutable for /assets/*. Verify: e2e cache checks; curl -I / shows no-cache.`
+**F8 · "Let the AI raise its risk" always blocked** `Agents could only tighten, so after tightening they never earned risk back. risk::agent_limits: never above the user's profile (LIMIT_LOOSEN_DENIED); below it only when earned (3+ trades/30d, 55%+ wins, not losing today: RISK_NOT_EARNED); ≤ +25% per step (RISK_STEP_TOO_BIG). Button explains the result. Verify: risk unit tests + e2e codes.`
+**F9 · Voice fails silently** `speak() swallows errors; engine returns a bare 502. Surface ElevenLabs' own status/message, add Settings → Test, cut text at a sentence (600 chars), ELEVENLABS_MODEL default eleven_flash_v2_5. Verify: tests/live_feed.py error path.`
+
+**Not code (do in a dashboard / on the server):**
+- **Auth0:** APIs → the API matching `AUTH0_AUDIENCE` → Application Access → authorize the SPA for user access. App settings: type SPA; Allowed Callback, Logout and Web Origins = the site URL. No client secret in `.env`. `VITE_*` changes need `--build`.
+- **Deploy:** `docker compose --env-file .env -f deploy/docker-compose.yml --profile https up -d --build`, then check `/v1/config` shows `"guest":true`.
+- **ElevenLabs:** Settings → Test. `detected_unusual_activity` = free plan blocked from a server IP; needs a paid plan.
+- **Claude:** set `ANTHROPIC_API_KEY` on the server, or the "AI picks the brain" story is rule-based only.
+
+**Release check (before every demo):** `Run tests/ui/journey.mjs, reload.mjs and auth0.mjs against a production-configured engine, then on the live site: InPrivate window → guest sign-up → fund → refresh → Watch it survive 2025 to the end → Settings → Test voice. Report pass/fail per step.`
 
 ## Debug prompts
 - `Parity test fails on <field> at <date>. Compare Rust vs backtest/v2.py logic and fix Rust. Minimal diff.`

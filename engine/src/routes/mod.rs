@@ -29,6 +29,16 @@ async fn private_only(req: Request, next: Next) -> Result<Response, StatusCode> 
     }
 }
 
+/// Hashed bundles (/assets/*) are immutable; everything else (index.html, the SPA routes) must be re-checked on every
+/// load, or browsers keep showing the previous release after a deploy.
+async fn cache_policy(req: Request, next: Next) -> Response {
+    let assets = req.uri().path().starts_with("/assets/");
+    let mut res = next.run(req).await;
+    let v = if assets { "public, max-age=31536000, immutable" } else { "no-cache" };
+    if res.status().is_success() { res.headers_mut().insert(header::CACHE_CONTROL, HeaderValue::from_static(v)); }
+    res
+}
+
 pub fn router(app: S) -> Router {
     let web = tower_http::services::ServeDir::new(&app.cfg.web_dir)
         .fallback(tower_http::services::ServeFile::new(format!("{}/index.html", app.cfg.web_dir)));
@@ -80,7 +90,7 @@ pub fn router(app: S) -> Router {
         .with_state(app)
         .layer(DefaultBodyLimit::max(16 * 1024))
         .layer(cors)
-        .fallback_service(web)
+        .fallback_service(Router::new().fallback_service(web).layer(middleware::from_fn(cache_policy)))
 }
 
 #[cfg(test)]
