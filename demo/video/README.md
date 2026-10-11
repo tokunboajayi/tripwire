@@ -18,12 +18,17 @@ PowerShell: `$env:ELEVENLABS_API_KEY="sk_..."; $env:U="https://getwiththeprogram
 Output: `out/vantrel-demo.mp4`.
 
 - No key: a captions-only video.
-- Narration is cached in `out/audio/`, so a rebuild doesn't spend credits again. Delete a file to regenerate that line.
+- Narration is cached in `out/audio/`. Lines whose text you change in `script.mjs` are regenerated automatically; unchanged lines cost no new credits.
 - `SKIP_RECORD=1` re-mixes the existing recording without re-recording.
 - Optional settings:
   - `ELEVENLABS_VOICE` (voice id)
   - `ELEVENLABS_MODEL` (default `eleven_multilingual_v2`)
   - `CHROME` (path to a Chrome binary)
 
-## How it stays in sync
-Each scene lasts as long as its narration (`narrate.mjs` measures it with ffprobe). Browser recordings drift from wall-clock time, so each scene stamps a 16px colour code in the corner of the frame. `build.mjs` reads those stamps back from the video and lays each line of voice exactly under its scene.
+## How the voice flows without pauses
+Each scene's clicks are paced inside its narration (`narrate.mjs` measures each line with ffprobe). Browser recordings drift from wall-clock time, so each scene stamps a 16px colour code in the corner of the frame. `build.mjs`:
+1. Finds each scene in the recording from those stamps.
+2. Speeds up or slows each scene's footage slightly (0.75x to 1.3x) so it lasts exactly as long as its line.
+3. Lays the lines back to back with a short breath between them.
+
+ElevenLabs gets each line's previous and next text, so the read sounds like one take. The build prints a gap report; "No gaps over 1s" means it flows.
