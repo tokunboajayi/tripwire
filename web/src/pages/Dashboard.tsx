@@ -20,6 +20,7 @@ export default function Dashboard({ acct, feed, reasoning, reload, voice, live =
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, []); // "updated Ns ago"
   const [markets, setMarkets] = useState<MarketRow[]>([]);
   const [sym, setSym] = useState("");
+  const [voiceState, setVoiceState] = useState(""); // "", "busy", or the last voice error
   const [candles, setCandles] = useState<Candle[]>([]);
   const [trades, setTrades] = useState<any[]>([]);
   const [equity, setEquity] = useState<[number, number][]>([]);
@@ -114,7 +115,10 @@ export default function Dashboard({ acct, feed, reasoning, reload, voice, live =
             <div className="mt-4 label">{inDemo ? "Brain in charge on this day" : "Brain in charge now"}</div>
             {activeRegime ? (
               <>
-                <div key={activeRegime} className="rise mt-1 text-4xl font-extrabold tracking-tight sm:text-5xl" style={{ color: REGIMES[activeRegime].color, textShadow: `0 0 28px ${REGIMES[activeRegime].color}55` }}>
+                <div key={activeRegime} className="rise mt-1 flex items-center gap-3 text-4xl font-bold tracking-tight sm:text-5xl" style={{ color: REGIMES[activeRegime].color, textShadow: `0 0 28px ${REGIMES[activeRegime].color}55` }}>
+                  <span className="grid h-12 w-12 shrink-0 place-items-center rounded-md border sm:h-14 sm:w-14" style={{ borderColor: REGIMES[activeRegime].color + "66", background: REGIMES[activeRegime].color + "14" }}>
+                    <Icon n={BRAINS[REGIMES[activeRegime].brain].glyph} size={30} />
+                  </span>
                   {BRAINS[REGIMES[activeRegime].brain].label}
                 </div>
                 <p className="mt-2 text-sm text-slate-300">
@@ -138,13 +142,16 @@ export default function Dashboard({ acct, feed, reasoning, reload, voice, live =
                 <div className="label">Portfolio value</div>
                 <div className="mt-1 text-3xl font-bold text-white num">{usd(acct.equity)}</div>
                 <div className="mt-1 flex flex-wrap gap-x-4 text-sm num">
-                  <span className={acct.pnl_today >= 0 ? "text-up" : "text-down"}>{signedUsd(acct.pnl_today)} today</span>
-                  <span className={acct.pnl_total >= 0 ? "text-up" : "text-down"}>{signedUsd(acct.pnl_total)} all time</span>
+                  <span className={pnlTone(acct.pnl_today)}>{signedUsd(acct.pnl_today)} today</span>
+                  <span className={pnlTone(acct.pnl_total)}>{signedUsd(acct.pnl_total)} all time</span>
                 </div>
-                <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-ink-700" role="progressbar" aria-label="Goal progress" aria-valuenow={Math.round(Math.min(1, acct.goal.progress) * 100)} aria-valuemin={0} aria-valuemax={100}>
-                  <div className="h-full rounded-full bg-up" style={{ width: Math.min(100, acct.goal.progress * 100) + "%" }} />
+                <RiskWire acct={acct} />
+                <div className="mt-3 flex items-center gap-2 text-xs text-slate-400">
+                  <div className="h-1 w-16 overflow-hidden rounded-full bg-ink-700" role="progressbar" aria-label="Goal progress" aria-valuenow={Math.round(Math.min(1, acct.goal.progress) * 100)} aria-valuemin={0} aria-valuemax={100}>
+                    <div className="h-full bg-up" style={{ width: Math.min(100, acct.goal.progress * 100) + "%" }} />
+                  </div>
+                  Goal +{usd(acct.goal.amount, 0)} in {acct.goal.months} mo · {pct(acct.goal.progress, 1)}
                 </div>
-                <div className="mt-1 text-xs text-slate-400">Goal +{usd(acct.goal.amount, 0)} in {acct.goal.months} mo · {pct(acct.goal.progress, 1)} there</div>
               </>
             )}
           </div>
@@ -189,7 +196,8 @@ export default function Dashboard({ acct, feed, reasoning, reload, voice, live =
               ))}
             </div>
           </div>
-          {candles.length ? <RegimeChart data={chartData} stream={chartStream} markers={markers} live={inDemo ? undefined : live[sym]?.bar} />
+          {candles.length ? <RegimeChart data={chartData} stream={chartStream} markers={markers} live={inDemo ? undefined : live[sym]?.bar}
+              wires={inDemo ? [] : acct.positions.filter((p: any) => p.symbol === sym).map((p: any) => ({ price: p.stop, title: "STOP" }))} />
             : <div className="grid h-[380px] place-items-center text-sm text-slate-400">Loading chart…</div>}
         </div>
         <div className="card flex max-h-[470px] flex-col p-5">
@@ -251,7 +259,8 @@ export default function Dashboard({ acct, feed, reasoning, reload, voice, live =
           </div>
           {acct.digest && <p className="rounded-lg bg-ink-850 p-3 text-sm text-slate-300"><b className="text-white">Today: </b>{acct.digest}</p>}
           <div className="mt-auto grid gap-2">
-            {voice && <button className="btn" onClick={() => speak(acct.digest || reportText(acct, markets), true)}><Icon n="volume" size={16} />Hear today's report</button>}
+            {voice && <button className="btn" disabled={voiceState === "busy"} onClick={async () => { setVoiceState("busy"); setVoiceState((await speak(acct.digest || reportText(acct, markets), true)) ?? ""); }}><Icon n="volume" size={16} />{voiceState === "busy" ? "Loading voice…" : "Hear today's report"}</button>}
+            {voiceState && voiceState !== "busy" && <p role="alert" className="w-full text-xs text-down">{voiceState}</p>}
           </div>
         </div>
       </section>
@@ -311,8 +320,33 @@ function Hero({ regime, children }: { regime?: Regime; children: ReactNode }) {
   const c = regime ? REGIMES[regime].color : "#334155";
   return (
     <section className="card relative overflow-hidden p-6 motion-safe:transition-colors motion-safe:duration-700" style={{ borderColor: c + "66", background: `radial-gradient(120% 140% at 0% 0%, ${c}26 0%, transparent 55%), #0B1220` }}>
+      <div className="wire absolute inset-x-0 top-0" aria-hidden />
       {children}
     </section>
+  );
+}
+
+const pnlTone = (v: number) => (v > 0.005 ? "text-up" : v < -0.005 ? "text-down" : "text-slate-400");
+
+/** The tripwire, made visible: today's loss against the daily limit that auto-pauses trading. */
+function RiskWire({ acct }: { acct: any }) {
+  const limit = acct.limits.daily_loss;
+  const startOfDay = acct.equity - acct.pnl_today;
+  const loss = startOfDay > 0 ? Math.max(0, -acct.pnl_today / startOfDay) : 0;
+  const used = Math.min(1, loss / limit);
+  const tone = used >= 1 ? "bg-down" : used > 0.6 ? "bg-wire" : "bg-slate-300";
+  return (
+    <div className="mt-4" role="meter" aria-label="Daily loss against the auto-pause limit" aria-valuemin={0} aria-valuemax={limit * 100} aria-valuenow={+(Math.min(loss, limit) * 100).toFixed(2)} aria-valuetext={`today −${(loss * 100).toFixed(2)}%, pause at −${(limit * 100).toFixed(1)}%`}>
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 font-mono text-[11px] uppercase tracking-[0.12em]">
+        <span className="whitespace-nowrap text-slate-400">Risk wire</span>
+        <span className="whitespace-nowrap text-slate-300">today −{(loss * 100).toFixed(2)}% <span className="text-wire">/ pause at −{(limit * 100).toFixed(1)}%</span></span>
+      </div>
+      <div className="relative mt-2 h-2.5">
+        <div className="absolute inset-y-[4px] left-0 right-0 rounded-full bg-ink-700" />
+        <div className={"absolute inset-y-[4px] left-0 rounded-full " + tone} style={{ width: Math.max(used * 100, used > 0 ? 2 : 0) + "%" }} />
+        <div className="absolute inset-y-0 right-0 w-[3px] rounded-full bg-wire shadow-[0_0_10px_#F5B841]" title="Auto-pause line" />
+      </div>
+    </div>
   );
 }
 

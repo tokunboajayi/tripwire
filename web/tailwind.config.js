@@ -3,7 +3,10 @@ export default {
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
-      fontFamily: { sans: ["Inter", "system-ui", "-apple-system", "Segoe UI", "sans-serif"] },
+      fontFamily: {
+        sans: ["IBM Plex Sans", "system-ui", "-apple-system", "Segoe UI", "sans-serif"],
+        mono: ["JetBrains Mono", "ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
+      },
       colors: {
         ink: { 950: "#070B14", 900: "#0B1220", 850: "#0F1729", 800: "#131C31", 700: "#1C2740", 600: "#2A3654" },
         wire: "#F5B841",
@@ -11,7 +14,7 @@ export default {
         down: "#F87171",
         regime: { range: "#60A5FA", trend: "#34D399", vol: "#F5B841", down: "#CBD5E1" },
       },
-      boxShadow: { card: "0 1px 0 0 rgba(255,255,255,.04) inset, 0 8px 24px -12px rgba(0,0,0,.6)" },
+      boxShadow: { card: "0 1px 0 0 rgba(255,255,255,.035) inset" },
     },
   },
   plugins: [],

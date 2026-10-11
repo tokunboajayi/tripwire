@@ -36,10 +36,10 @@ export default function Landing({ auth0, login, devLogin }: { auth0: boolean; lo
         <section className="grid items-center gap-10 py-12 lg:grid-cols-[1.15fr_1fr] lg:py-20">
           <div>
             <p className="mb-4 inline-flex items-center gap-2 rounded-full border border-ink-600 bg-ink-850 px-3 py-1 text-xs font-semibold text-slate-300">
-              <span className="h-1.5 w-1.5 rounded-full bg-up" /> Paper trading on live crypto prices
+              <span className="h-1.5 w-1.5 rounded-full bg-wire" /> Paper trading on live crypto prices
             </p>
             <h1 className="text-4xl font-extrabold leading-[1.05] tracking-tight text-white sm:text-6xl">
-              Set your risk.<br />Fund it.<br /><span className="text-up">AI trades for you.</span>
+              Set your risk.<br />Fund it.<br /><span className="text-wire">AI trades for you.</span>
             </h1>
             <p className="mt-5 max-w-xl text-lg text-slate-400">
               Vantrel switches between three trading brains to fit the market, explains every move in plain English,
@@ -61,7 +61,7 @@ export default function Landing({ auth0, login, devLogin }: { auth0: boolean; lo
               ["3", "You watch", "Live chart, positions, today's gain or loss, goal progress, and a one-line why for every action."],
             ].map(([n, t, d]) => (
               <div key={n} className="card p-6">
-                <span className="grid h-8 w-8 place-items-center rounded-lg bg-up/15 text-sm font-bold text-up">{n}</span>
+                <span className="grid h-8 w-8 place-items-center rounded-md border border-wire/40 bg-wire/10 font-mono text-sm font-bold text-wire">{n}</span>
                 <h3 className="mt-4 font-semibold text-white">{t}</h3>
                 <p className="mt-1 text-sm text-slate-400">{d}</p>
               </div>
@@ -96,7 +96,7 @@ export default function Landing({ auth0, login, devLogin }: { auth0: boolean; lo
               <ul className="mt-5 space-y-3 text-sm">
                 {["The AI can tighten your limits. It can never loosen them.", "If the AI is slow, wrong, or contradicts the data, Rust falls back to its own rules. Trading never freezes.",
                   "Daily loss limit auto-pauses the account. Kill switch stops every new order."].map((t) => (
-                  <li key={t} className="flex gap-3 text-slate-300"><Icon n="check" size={18} className="mt-0.5 text-up" />{t}</li>
+                  <li key={t} className="flex gap-3 text-slate-300"><Icon n="check" size={18} className="mt-0.5 text-wire" />{t}</li>
                 ))}
               </ul>
             </div>
@@ -131,7 +131,7 @@ export default function Landing({ auth0, login, devLogin }: { auth0: boolean; lo
                 {[["Robinhood", "You (and your panic)", "Only if you do", "No", "No"], ["Acorns / robo-advisors", "A fixed index mix", "No", "n/a", "No"], ["Trading bots", "One fixed rule", "No", "Rarely", "No"]].map((r) => (
                   <tr key={r[0]}>{r.map((c, i) => <td key={i} className={"p-4 " + (i ? "text-slate-400" : "font-medium text-slate-200")}>{c}</td>)}</tr>
                 ))}
-                <tr className="bg-up/5">{["Vantrel", "AI, per market regime", "Yes: 3 brains + shield", "Yes, in Rust", "Every action"].map((c, i) => <td key={i} className={"p-4 font-semibold " + (i ? "text-up" : "text-white")}>{c}</td>)}</tr>
+                <tr className="bg-wire/5">{["Vantrel", "AI, per market regime", "Yes: 3 brains + shield", "Yes, in Rust", "Every action"].map((c, i) => <td key={i} className={"p-4 font-semibold " + (i ? "text-wire" : "text-white")}>{c}</td>)}</tr>
               </tbody>
             </table>
           </div>

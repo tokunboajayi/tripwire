@@ -232,10 +232,34 @@ pub async fn voice(State(app): State<S>, Query(q): Query<VoiceQ>) -> R {
     user_from_token(&app, &q.token).await.ok_or(err(StatusCode::UNAUTHORIZED, "token"))?;
     let key = std::env::var("ELEVENLABS_API_KEY").ok().filter(|k| !k.is_empty()).ok_or(err(StatusCode::NOT_FOUND, "voice off"))?;
     let vid = env_or("ELEVENLABS_VOICE", "21m00Tcm4TlvDq8ikWAM");
-    let r = app.http.post(format!("{}/v1/text-to-speech/{vid}", app.cfg.elevenlabs_url)).header("xi-api-key", key)
-        .json(&json!({"text": q.text.chars().take(240).collect::<String>(), "model_id": "eleven_turbo_v2_5"}))
-        .send().await.map_err(|e| err(StatusCode::BAD_GATEWAY, &e.to_string()))?;
-    if !r.status().is_success() { return Err(err(StatusCode::BAD_GATEWAY, "elevenlabs")) }
+    let model = env_or("ELEVENLABS_MODEL", "eleven_flash_v2_5");
+    let r = app.http.post(format!("{}/v1/text-to-speech/{vid}", app.cfg.elevenlabs_url))
+        .header("xi-api-key", key.trim()).header("accept", "audio/mpeg")
+        .json(&json!({"text": speech_text(&q.text), "model_id": model}))
+        .send().await.map_err(|e| { eprintln!("voice: ElevenLabs unreachable: {e}"); err(StatusCode::BAD_GATEWAY, "ElevenLabs unreachable") })?;
+    let status = r.status();
+    if !status.is_success() {
+        // Surface ElevenLabs' own reason (bad key, quota, blocked IP, unknown voice) instead of a bare 502.
+        let body: Value = r.json().await.unwrap_or(Value::Null);
+        let d = &body["detail"];
+        let why = d["message"].as_str().or(d.as_str()).unwrap_or("no detail");
+        let code = d["status"].as_str().unwrap_or("");
+        let msg = format!("ElevenLabs {}{}: {why}", status.as_u16(), if code.is_empty() { String::new() } else { format!(" {code}") });
+        eprintln!("voice: {msg}");
+        return Err(err(StatusCode::BAD_GATEWAY, &msg));
+    }
     let bytes = r.bytes().await.map_err(|e| err(StatusCode::BAD_GATEWAY, &e.to_string()))?;
     Ok(([(axum::http::header::CONTENT_TYPE, "audio/mpeg")], bytes).into_response())
+}
+
+/// Up to 600 chars (bounds ElevenLabs credit use), cut at the last sentence end so speech never stops mid-word.
+fn speech_text(t: &str) -> String {
+    const CAP: usize = 600;
+    let t = t.trim();
+    if t.chars().count() <= CAP { return t.to_string() }
+    let head: String = t.chars().take(CAP).collect();
+    match head.rfind(|c| matches!(c, '.' | '!' | '?')) {
+        Some(i) if i > CAP / 3 => head[..=i].to_string(),
+        _ => head,
+    }
 }

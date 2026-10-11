@@ -48,11 +48,11 @@ export const REGIMES: Record<Regime, { label: string; color: string; brain: Brai
   HIGH_VOL: { label: "Volatile", color: "#F5B841", brain: "BREAKOUT" },
   TREND_DOWN: { label: "Falling", color: "#CBD5E1", brain: "SHIELD" },
 };
-export const BRAINS: Record<Brain, { label: string; does: string }> = {
-  MR: { label: "Mean-Reversion", does: "Buys sharp dips, sells the bounce" },
-  TREND: { label: "Trend", does: "Rides the move, sized by volatility" },
-  BREAKOUT: { label: "Breakout", does: "Buys confirmed breakouts, tight trailing stop" },
-  SHIELD: { label: "Shield", does: "Holds cash until the market turns" },
+export const BRAINS: Record<Brain, { label: string; does: string; glyph: "mr" | "trend" | "breakout" | "shield" }> = {
+  MR: { label: "Mean-Reversion", does: "Buys sharp dips, sells the bounce", glyph: "mr" },
+  TREND: { label: "Trend", does: "Rides the move, sized by volatility", glyph: "trend" },
+  BREAKOUT: { label: "Breakout", does: "Buys confirmed breakouts, tight trailing stop", glyph: "breakout" },
+  SHIELD: { label: "Shield", does: "Holds cash until the market turns", glyph: "shield" },
 };
 
 // ---------- formatting ----------
@@ -66,7 +66,24 @@ export const time = (ts: number) => new Date(ts * 1000).toLocaleTimeString([], {
 // ---------- voice (ElevenLabs via the engine, key stays server-side) ----------
 let voiceOn = false;
 export const setVoice = (on: boolean) => (voiceOn = on);
-export function speak(text: string, force = false) {
-  if ((!voiceOn && !force) || !text) return;
-  new Audio(`/v1/voice?token=${encodeURIComponent(token)}&text=${encodeURIComponent(text)}`).play().catch(() => {});
+/** Speaks via the engine's ElevenLabs proxy. Resolves to an error message, or null when audio started. */
+export async function speak(text: string, force = false): Promise<string | null> {
+  if ((!voiceOn && !force) || !text) return null;
+  try {
+    const r = await fetch(`/v1/voice?token=${encodeURIComponent(token)}&text=${encodeURIComponent(text)}`);
+    if (!r.ok) {
+      const why = (await r.text()) || `voice failed (${r.status})`;
+      console.warn("voice:", why);
+      return why;
+    }
+    const url = URL.createObjectURL(await r.blob());
+    const a = new Audio(url);
+    a.onended = () => URL.revokeObjectURL(url);
+    await a.play();
+    return null;
+  } catch (e) {
+    const why = e instanceof Error && e.name === "NotAllowedError" ? "Browser blocked audio. Click anywhere on the page, then try again." : String(e);
+    console.warn("voice:", why);
+    return why;
+  }
 }

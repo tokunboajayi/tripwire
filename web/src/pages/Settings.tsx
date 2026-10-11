@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { api } from "../lib/api";
+import { api, speak } from "../lib/api";
 import { VerifyPanel } from "../components/Audit";
 import { Icon } from "../components/Icons";
 
@@ -7,6 +7,7 @@ import { Icon } from "../components/Icons";
 export default function Settings({ acct, cfg, voice, toggleVoice, reload, logout }: { acct: any; cfg: any; voice: boolean; toggleVoice: () => void; reload: () => void; logout: () => void }) {
   const mcp = useMemo(() => JSON.stringify({ mcpServers: { vantrel: { command: "python", args: ["mcp/server.py"], env: { VANTREL_API: location.origin, VANTREL_MCP_TOKEN: acct.mcp_token } } } }, null, 2), [acct.mcp_token]);
   const [copied, setCopied] = useState(false);
+  const [voiceTest, setVoiceTest] = useState(""); // "", "busy", "ok", or the ElevenLabs error
   return (
     <div className="space-y-5">
       <h1 className="text-2xl font-bold text-white">Settings</h1>
@@ -21,9 +22,13 @@ export default function Settings({ acct, cfg, voice, toggleVoice, reload, logout
       </section>
 
       {cfg.voice && (
-        <section className="card flex items-center justify-between gap-4 p-6">
+        <section className="card flex flex-wrap items-center justify-between gap-4 p-6">
           <div><h2 className="text-lg font-semibold text-white">Voice alerts</h2><p className="mt-1 text-sm text-slate-400">Hear it when the AI switches brains or a thesis breaks.</p></div>
-          <button className={"btn " + (voice ? "border-up text-up" : "")} aria-pressed={voice} onClick={toggleVoice}><Icon n={voice ? "volume" : "mute"} size={16} />{voice ? "On" : "Off"}</button>
+          <div className="flex shrink-0 gap-2">
+            <button className="btn" disabled={voiceTest === "busy"} onClick={async () => { setVoiceTest("busy"); setVoiceTest((await speak("Vantrel voice is working.", true)) ?? "ok"); }}>{voiceTest === "busy" ? "Testing…" : "Test"}</button>
+            <button className={"btn " + (voice ? "border-wire text-wire" : "")} aria-pressed={voice} onClick={toggleVoice}><Icon n={voice ? "volume" : "mute"} size={16} />{voice ? "On" : "Off"}</button>
+          </div>
+          {voiceTest && voiceTest !== "busy" && <p role="status" className={"w-full text-xs " + (voiceTest === "ok" ? "text-up" : "text-down")}>{voiceTest === "ok" ? "Voice OK: ElevenLabs answered." : voiceTest}</p>}
         </section>
       )}
 
