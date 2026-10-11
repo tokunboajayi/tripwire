@@ -20,6 +20,7 @@ export default function Dashboard({ acct, feed, reasoning, reload, voice, live =
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, []); // "updated Ns ago"
   const [markets, setMarkets] = useState<MarketRow[]>([]);
   const [sym, setSym] = useState("");
+  const [voiceState, setVoiceState] = useState(""); // "", "busy", or the last voice error
   const [candles, setCandles] = useState<Candle[]>([]);
   const [trades, setTrades] = useState<any[]>([]);
   const [equity, setEquity] = useState<[number, number][]>([]);
@@ -258,7 +259,8 @@ export default function Dashboard({ acct, feed, reasoning, reload, voice, live =
           </div>
           {acct.digest && <p className="rounded-lg bg-ink-850 p-3 text-sm text-slate-300"><b className="text-white">Today: </b>{acct.digest}</p>}
           <div className="mt-auto grid gap-2">
-            {voice && <button className="btn" onClick={() => speak(acct.digest || reportText(acct, markets), true)}><Icon n="volume" size={16} />Hear today's report</button>}
+            {voice && <button className="btn" disabled={voiceState === "busy"} onClick={async () => { setVoiceState("busy"); setVoiceState((await speak(acct.digest || reportText(acct, markets), true)) ?? ""); }}><Icon n="volume" size={16} />{voiceState === "busy" ? "Loading voice…" : "Hear today's report"}</button>}
+            {voiceState && voiceState !== "busy" && <p role="alert" className="w-full text-xs text-down">{voiceState}</p>}
           </div>
         </div>
       </section>

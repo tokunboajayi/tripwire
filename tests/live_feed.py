@@ -57,6 +57,9 @@ class Voice(BaseHTTPRequestHandler):
         tts.append({"path": self.path, "key": self.headers.get("xi-api-key"), **body})
         if self.headers.get("xi-api-key") != "test-key":
             self.send_response(401); self.end_headers(); return
+        if body["text"].startswith("QUOTA"):  # mimic ElevenLabs' real error shape
+            err = json.dumps({"detail": {"status": "quota_exceeded", "message": "You have 0 credits remaining."}}).encode()
+            self.send_response(401); self.send_header("content-type", "application/json"); self.end_headers(); self.wfile.write(err); return
         audio = b"ID3" + b"\x00" * 64
         self.send_response(200); self.send_header("content-type", "audio/mpeg"); self.send_header("content-length", str(len(audio))); self.end_headers(); self.wfile.write(audio)
 
@@ -111,7 +114,9 @@ try:
     check("voice proxy returns audio/mpeg", r.status_code == 200 and r.headers["content-type"] == "audio/mpeg" and r.content.startswith(b"ID3"), (r.status_code, r.headers.get("content-type")))
     t = tts[-1] if tts else {}
     check("engine sends the key server-side to the configured voice", t.get("key") == "test-key" and t.get("path") == "/v1/text-to-speech/voice123", t)
-    check("text capped at 240 chars, model set", len(t.get("text", "")) == 240 and t.get("model_id"), {k: (len(v) if k == "text" else v) for k, v in t.items()})
+    check("long text capped at 600 chars on a sentence end, model set", 200 < len(t.get("text", "")) <= 600 and t.get("text", "").endswith(".") and t.get("model_id"), {k: (len(v) if k == "text" else v) for k, v in t.items()})
+    r = httpx.get(U + "/v1/voice", params={"token": "dev:live", "text": "QUOTA test"})
+    check("ElevenLabs error reason reaches the user (502 + status + message)", r.status_code == 502 and "quota_exceeded" in r.text and "0 credits" in r.text, (r.status_code, r.text))
     check("voice without a valid token -> 401", httpx.get(U + "/v1/voice", params={"token": "nope", "text": "hi"}).status_code == 401)
     check("browser never sees the ElevenLabs key", "test-key" not in httpx.get(U + "/v1/config").text)
 finally:
