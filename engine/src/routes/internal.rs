@@ -5,7 +5,7 @@ use crate::audit::Anchor;
 use crate::auth::{err, internal};
 use crate::ledger::{close_pos, Thesis, SLIP};
 use crate::regime::{accept_ai, Regime};
-use crate::risk::{set_limits, Limits, Status};
+use crate::risk::{agent_limits, Limits, Record, Status, MAX_RAISE_STEP};
 use crate::state::Ev;
 use crate::{now, ok, R, S};
 use axum::extract::State;
@@ -113,21 +113,39 @@ pub async fn digest(State(app): State<S>, h: HeaderMap, Json(b): Json<DigestIn>)
 #[derive(Deserialize)]
 pub struct LimIn { account: String, limits: Limits }
 
-/// Agents may tighten limits, never loosen them.
+/// Agents tighten freely; they may raise risk back toward the user's ceiling only when earned (risk::agent_limits).
 pub async fn limits(State(app): State<S>, h: HeaderMap, Json(b): Json<LimIn>) -> R {
     internal(&app, &h)?;
     let mut w = app.w.lock().unwrap();
+    let px = w.prices();
     let a = w.accounts.get_mut(&b.account).ok_or(err(StatusCode::NOT_FOUND, "account"))?;
-    match set_limits(&a.limits, &b.limits, true) {
+    let (cur, ceiling, rec) = (a.limits, Limits::profile(&a.profile), a.record(&px, now()));
+    match agent_limits(&cur, &b.limits, &ceiling, &rec) {
         Ok(l) => {
             a.limits = l;
-            w.emit(Some(&b.account), "limits", "AI agent tightened your limits.".into(), json!({"limits": l}));
+            let msg = if l.risk > cur.risk + 1e-12 { earned_msg(&cur, &l, &ceiling, &rec) } else { "AI agent tightened your limits.".into() };
+            w.emit(Some(&b.account), "limits", msg, json!({"limits": l}));
             ok(json!({"ok": true}))
         }
         Err(code) => {
-            w.emit(Some(&b.account), "gate_block", format!("AI agent tried to loosen limits: {code}."), json!({"code": code}));
+            w.emit(Some(&b.account), "gate_block", block_msg(code, &cur, &ceiling, &rec), json!({"code": code}));
             Err(err(StatusCode::FORBIDDEN, code))
         }
+    }
+}
+
+pub fn earned_msg(cur: &Limits, new: &Limits, ceiling: &Limits, rec: &Record) -> String {
+    format!("AI earned more risk: {:.1}% → {:.1}% per trade (your ceiling {:.1}%). Record: {}/{} wins, not losing today.",
+        cur.risk * 100., new.risk * 100., ceiling.risk * 100., rec.wins, rec.closed)
+}
+
+pub fn block_msg(code: &str, cur: &Limits, ceiling: &Limits, rec: &Record) -> String {
+    match code {
+        "LIMIT_LOOSEN_DENIED" => format!("AI asked to go above your ceiling ({:.1}% per trade). Blocked: {code}. Only you can raise the ceiling.", ceiling.risk * 100.),
+        "RISK_NOT_EARNED" => format!("AI asked to raise its risk from {:.1}% per trade. Blocked: {code}. It needs {}+ closed trades, {:.0}%+ wins and no loss today (has {}/{} wins, today {}).",
+            cur.risk * 100., Record::MIN_TRADES, Record::MIN_WIN_RATE * 100., rec.wins, rec.closed, if rec.pnl_today >= 0. { "up" } else { "down" }),
+        "RISK_STEP_TOO_BIG" => format!("AI asked to raise its risk by more than {:.0}% at once. Blocked: {code}.", MAX_RAISE_STEP * 100.),
+        _ => format!("AI limit change blocked: {code}."),
     }
 }
 

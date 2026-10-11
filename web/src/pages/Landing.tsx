@@ -11,7 +11,7 @@ export default function Landing({ auth0, signin = "name", login, devLogin }: { a
   useEffect(() => { api("/v1/backtest").then(setBt).catch(() => {}); }, []);
   const h = bt?.headline;
 
-  const Start = ({ big }: { big?: boolean }) => signin === "none" ? (
+  const start = (big?: boolean) => signin === "none" ? (
     <p role="alert" className="max-w-md rounded-md border border-wire/40 bg-wire/10 p-3 text-sm text-amber-100">Sign-in is turned off on this server. Set GUEST_SIGNIN=1 (or configure Auth0) and restart the engine.</p>
   ) : auth0 ? (
     <button className={"btn btn-primary " + (big ? "px-6 py-3.5 text-base" : "")} onClick={login}>Get started <Icon n="chevron" size={18} /></button>
@@ -47,7 +47,7 @@ export default function Landing({ auth0, signin = "name", login, devLogin }: { a
               Vantrel switches between three trading brains to fit the market, explains every move in plain English,
               and runs behind a <span className="font-semibold text-wire">Rust safety layer the AI can't override</span>.
             </p>
-            <div className="mt-8"><Start big /></div>
+            <div className="mt-8">{start(true)}</div>
             <p className="mt-3 text-xs text-slate-400">Takes 60 seconds. Paper money only. Not financial advice.</p>
           </div>
           <HeroCard />
@@ -142,7 +142,7 @@ export default function Landing({ auth0, signin = "name", login, devLogin }: { a
         <section className="flex flex-col items-center gap-5 py-16 text-center">
           <Mark size={48} />
           <h2 className="text-3xl font-bold text-white">Set it once. Watch it work.</h2>
-          <Start />
+          {start()}
         </section>
       </main>
       <footer className="border-t border-ink-800 py-8 text-center text-xs text-slate-400">Paper trading only. Not financial advice. Past results don't predict future returns.</footer>

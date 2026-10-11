@@ -230,9 +230,10 @@ export default function Dashboard({ acct, feed, reasoning, reload, voice, live =
           <h2 className="font-semibold text-white">Your risk</h2>
           <div className="mt-5"><RiskSlider value={acct.profile as Profile} onChange={setProfile} /></div>
           <div className="mt-3"><LimitsTable profile={acct.profile as Profile} compact /></div>
-          <button className="btn mt-4 w-full border-wire/40 text-wire hover:border-wire" disabled={!!busy} onClick={() => act("agent-loosen")} title="The AI asks to double its own risk after a loss. Rust refuses.">
-            <Icon n="shieldOff" size={16} />Let the AI raise its own risk
+          <button className="btn mt-4 w-full border-wire/40 text-wire hover:border-wire" disabled={!!busy} onClick={() => act("agent-loosen")} title="The AI asks for one +25% step of risk. Rust decides.">
+            <Icon n="shieldOff" size={16} />Ask the AI to raise its risk
           </button>
+          <p className="mt-2 text-xs text-slate-400">It can earn risk back after wins (3+ trades, 55%+ wins, not losing today), one step at a time. <span className="text-wire">Never above your setting ({((PROFILES[acct.profile as Profile]?.risk ?? 0) * 100).toFixed(1)}% per trade).</span></p>
           <p className="mt-2 text-xs text-slate-400">{PROFILES[acct.profile as Profile]?.blurb}</p>
         </div>
 

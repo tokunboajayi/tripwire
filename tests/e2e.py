@@ -85,7 +85,13 @@ bad = c.post("/internal/regime", headers=I, json={"symbol": "BTC", "regime": "HI
 check("AI regime contradicting data -> REGIME_MISMATCH override", bad["source"] == "override_rejected" and bad["final"] == det, bad)
 lim = a["limits"]
 check("agent may tighten limits", c.post("/internal/limits", headers=I, json={"account": "dev|e2e", "limits": {**lim, "risk": 0.01}}).status_code == 200)
-check("agent may not loosen limits -> 403", c.post("/internal/limits", headers=I, json={"account": "dev|e2e", "limits": {**lim, "risk": 0.05}}).status_code == 403)
+r = c.post("/internal/limits", headers=I, json={"account": "dev|e2e", "limits": {**lim, "risk": 0.05}})
+check("agent may not go above the user's ceiling -> 403 LIMIT_LOOSEN_DENIED", r.status_code == 403 and "LIMIT_LOOSEN_DENIED" in r.text, r.text)
+r = c.post("/internal/limits", headers=I, json={"account": "dev|e2e", "limits": {**lim, "risk": 0.0125}})
+check("agent raising risk with no winning record -> 403 RISK_NOT_EARNED", r.status_code == 403 and "RISK_NOT_EARNED" in r.text, r.text)
+r = c.post("/internal/limits", headers=I, json={"account": "dev|e2e", "limits": {**lim, "risk": 0.02}})
+check("agent jumping +100% in one step -> 403 RISK_STEP_TOO_BIG", r.status_code == 403 and "RISK_STEP_TOO_BIG" in r.text, r.text)
+c.patch("/v1/accounts/me/profile", headers=D, json={"profile": c.get("/v1/accounts/me", headers=D).json()["profile"]})  # user resets via the slider
 check("thesis for missing position -> 404", c.post("/internal/thesis", headers=I, json={"account": "dev|e2e", "symbol": "BTC", "reason": "x", "invalidation": [], "confidence": 0.5}).status_code == 404)
 check("digest stored", c.post("/internal/digest", headers=I, json={"account": "dev|e2e", "text": "Held cash today."}).status_code == 200 and c.get("/v1/accounts/me", headers=D).json()["digest"] == "Held cash today.")
 c.post("/internal/stream", headers=I, json={"symbol": "BTC", "text": "thinking..."})

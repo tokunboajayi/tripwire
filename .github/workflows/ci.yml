@@ -50,8 +50,15 @@ jobs:
         run: python tests/live_feed.py engine/target/release/vantrel-engine
       - name: sign-in on a production-configured engine (no DEV, no Auth0)
         run: python tests/public_signin.py engine/target/release/vantrel-engine
+      - name: real-browser user journey on a production-configured engine
+        run: |
+          mkdir -p "$RUNNER_TEMP/vtp" && cp data/backtest.json "$RUNNER_TEMP/vtp/"
+          (cd engine && DATA_DIR="$RUNNER_TEMP/vtp" INTERNAL_TOKEN="$(openssl rand -hex 24)" MARKET_URL=http://127.0.0.1:9 WEB_DIR="$GITHUB_WORKSPACE/web/dist" PORT=8098 \
+            nohup ./target/release/vantrel-engine > "$RUNNER_TEMP/engine-prod.log" 2>&1 &)
+          for i in $(seq 1 60); do curl -sf localhost:8098/v1/health >/dev/null && break; sleep 1; done
+          cd tests/ui && npm install --no-audit --no-fund && npx playwright-core install --with-deps chromium && U=http://localhost:8098 node journey.mjs
       - if: failure()
-        run: cat "$RUNNER_TEMP/engine.log"
+        run: cat "$RUNNER_TEMP/engine.log"; cat "$RUNNER_TEMP/engine-prod.log" 2>/dev/null || true
   docker:
     runs-on: ubuntu-latest
     steps:
