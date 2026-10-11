@@ -1,5 +1,9 @@
 # 05 · Prompt Guide for Claude Code (token-lean)
 
+> **Status Oct 9, 22:45:** every prompt is built and tested, plus stock replay (B3/B4), Alpaca paper mirror (B5), ElevenLabs voice alerts, and the rule-based agent mode. Docker image verified.
+> Needs real keys to finish: Auth0 tenant (A7/D6), `python data/fetch_stocks.py` (Alpaca), a live Claude run, an ElevenLabs key, then deploy to Vultr.
+> Use the prompts below to *extend* the code, e.g. `Read engine/src/<module>.rs. Add <feature> per BUILD_SPEC §x. Minimal diff.` (modules follow §2: indicators, regime, brains, risk, ledger, scheduler, routes/…)
+
 ## Rules
 - One prompt = one milestone. Commit after each.
 - Always point at the spec section; never paste the spec.
@@ -8,7 +12,7 @@
 
 ## P0 · Session header (every new session)
 ```
-Project Tripwire. Source of truth: docs/03_BUILD_SPEC.md. My seat: <Owner|B|C|D>. Only touch my folders unless told. Code only.
+Project Vantrel. Source of truth: docs/03_BUILD_SPEC.md. My seat: <Owner|B|C|D>. Only touch my folders unless told. Code only.
 ```
 
 ## Owner · Engine

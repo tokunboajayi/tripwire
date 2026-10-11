@@ -1,10 +1,9 @@
 # 07 · GitHub Repo, README, Team & Landing Page
 
 ## Repo setup (AJ's computer = head of uploads)
-1. Open `setup_repo.ps1`, put teammates' GitHub usernames in `$Collaborators`.
-2. Double-click `SETUP_REPO.bat`. It installs Git + GitHub CLI if missing, logs you in, copies the folder to `%USERPROFILE%\dev\tripwire` (git + OneDrive = corruption risk), creates the GitHub repo, pushes, invites teammates, protects `main`, enables Pages.
-3. Teammates accept the invite, clone, and follow `CONTRIBUTING.md`.
-4. Fill teammate handles in `.github/CODEOWNERS` and the README team table (first PR).
+1. One-time setup is done: the repo exists, teammates are invited, `main` is protected. (The `setup_repo.ps1` / `SETUP_REPO.bat` bootstrap scripts were removed after use.)
+2. Teammates accept the invite, clone, and follow `CONTRIBUTING.md`.
+3. Fill teammate handles in `.github/CODEOWNERS` and the README team table (first PR).
 
 ## Upload flow (see CONTRIBUTING.md)
 - Teammates: branch `<seat>/<task>` → push → Pull Request.
@@ -13,7 +12,7 @@
 
 ## Claude Code prompt — repo README
 ```
-Write README.md for Tripwire using docs/01_IDEA.md, docs/02_BACKTEST.md, docs/03_BUILD_SPEC.md. Plain language, short sentences, no jargon without a 3-word explanation. Sections:
+Write README.md for Vantrel using docs/01_IDEA.md, docs/02_BACKTEST.md, docs/03_BUILD_SPEC.md. Plain language, short sentences, no jargon without a 3-word explanation. Sections:
 1 One-line pitch + screenshot placeholder + live link
 2 The problem (3 bullets)
 3 How it works (3 brains + shield table, AI chooses / Rust enforces)
@@ -29,12 +28,12 @@ Under 200 lines.
 
 ## Claude Code prompt — GitHub Pages landing
 ```
-Create landing/index.html (single file, Tailwind CDN, dark, mobile-first) for Tripwire. Hero: "Set your risk. AI trades. Rust keeps it safe." CTA buttons: Try the demo (<app url>), GitHub. Sections: problem (Robinhood vs robo vs bots vs Tripwire table), 3 brains + shield cards, results chart (embed equity_curves_v2.png) with honest caveat line, how-it-works diagram, Built With sponsor strip, team, disclaimer footer. Then add .github/workflows/pages.yml to deploy landing/ to GitHub Pages.
+Create landing/index.html (single file, Tailwind CDN, dark, mobile-first) for Vantrel. Hero: "Set your risk. AI trades. Rust keeps it safe." CTA buttons: Try the demo (<app url>), GitHub. Sections: problem (Robinhood vs robo vs bots vs Vantrel table), 3 brains + shield cards, results chart (embed equity_curves_v2.png) with honest caveat line, how-it-works diagram, Built With sponsor strip, team, disclaimer footer. Then add .github/workflows/pages.yml to deploy landing/ to GitHub Pages.
 ```
 Enable: Settings → Pages → Source: GitHub Actions.
 
 ## "Built with" strip (only list what you actually used)
-| Sponsor | How Tripwire uses it |
+| Sponsor | How Vantrel uses it |
 |---|---|
 | Auth0 | user sign-in, JWT-verified API |
 | Vultr | hosts the Rust engine + AI agents |

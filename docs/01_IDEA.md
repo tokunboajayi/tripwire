@@ -1,4 +1,4 @@
-# 01 · Tripwire — The Idea (plain version)
+# 01 · Vantrel — The Idea (plain version)
 
 ## One line
 **Set your risk. Fund it. AI trades for you — switching between 3 trading "brains" to match the market, with a Rust safety layer it can't override.**
@@ -18,7 +18,7 @@ The tools force a bad choice:
 3. **You watch:** live chart, positions, daily gain/loss, goal progress, and a plain-English "why" for every action.
 
 ## First-of-its-kind claim (defensible wording)
-> "Every human trader is stuck with one strategy. Tripwire is the first consumer AI investor that switches between multiple trading brains in real time to fit the market — and it physically can't override your risk limits."
+> "Every human trader is stuck with one strategy. Vantrel is the first consumer AI investor that switches between multiple trading brains in real time to fit the market — and it physically can't override your risk limits."
 
 Do NOT say "first AI trader ever." Say: *institutional ideas (regime switching, hard risk gates) made as simple as a slider.*
 
@@ -32,7 +32,7 @@ Do NOT say "first AI trader ever." Say: *institutional ideas (regime switching, 
 
 \*BTC/ETH/SOL daily bars, 2022–2026, 0.25% fees. See `02_BACKTEST.md`.
 
-**Honest note on "always trading":** spot crypto on Alpaca is long-only (no shorting). In a downtrend the only real defense is cash. Shield *is* a strategy — it's the reason Tripwire lost ~0% while the market lost 27.5%.
+**Honest note on "always trading":** spot crypto on Alpaca is long-only (no shorting). In a downtrend the only real defense is cash. Shield *is* a strategy — it's the reason Vantrel lost ~0% while the market lost 27.5%.
 
 ## The two AI agents (judgment only) + Rust (everything fast)
 | Part | Job | Why it's AI or Rust |
@@ -51,10 +51,11 @@ Do NOT say "first AI trader ever." Say: *institutional ideas (regime switching, 
 5. **Confidence sizing:** agent confidence 0.5–1.0 scales size (never above the profile cap).
 6. **Goal progress + daily digest:** "Today +0.8%, 2 trades, 1 win. Goal: 34% of the way."
 7. **Live reasoning stream:** the Regime Agent's thinking streams token-by-token on screen.
-8. **Talk to your portfolio (MCP):** ask Claude "why did you sell ETH?" → answer from Tripwire data.
+8. **Verified on Solana:** every action is hash-chained and anchored on Solana; anyone can verify the history in their browser.
+9. **Talk to your portfolio (MCP):** ask Claude "why did you sell ETH?" → answer from Vantrel data.
 
 ## Vs. who
-| | Robinhood | Acorns / robo | Bots | **Tripwire** |
+| | Robinhood | Acorns / robo | Bots | **Vantrel** |
 |---|---|---|---|---|
 | Who decides | You | Fixed index mix | 1 fixed rule | AI, per market regime |
 | Adapts to market | You do | No | No | **Yes, 3 brains + shield** |

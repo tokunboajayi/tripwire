@@ -1,0 +1,31 @@
+# From repo root: docker compose -f deploy/docker-compose.yml up --build
+services:
+  engine:
+    build: { context: .., args: { VITE_AUTH0_DOMAIN: "${VITE_AUTH0_DOMAIN:-}", VITE_AUTH0_CLIENT_ID: "${VITE_AUTH0_CLIENT_ID:-}", VITE_AUTH0_AUDIENCE: "${AUTH0_AUDIENCE:-}" } }
+    env_file: ../.env
+    # container paths win over local-dev paths in .env
+    environment: { DATA_DIR: /data, WEB_DIR: /app/web, PORT: "8080" }
+    volumes: [ "tripwire-data:/data" ]   # original volume name kept so existing accounts + audit chain survive the rebrand
+    ports: [ "8080:8080" ]
+    restart: unless-stopped
+  agents:
+    build: ../agents
+    env_file: ../.env
+    environment: { VANTREL_API: "http://engine:8080" }
+    depends_on: [ engine ]
+    restart: unless-stopped
+  imessage:
+    build: ../imessage
+    env_file: ../.env
+    environment: { VANTREL_API: "http://engine:8080" }
+    depends_on: [ engine ]
+    restart: unless-stopped
+    profiles: [ "imessage" ]   # needs PHOTON_PROJECT_ID/SECRET; start with --profile imessage
+  caddy:
+    image: caddy:2
+    profiles: [ "https" ]
+    ports: [ "80:80", "443:443" ]
+    environment: { DOMAIN: "${DOMAIN:-localhost}" }
+    volumes: [ "./Caddyfile:/etc/caddy/Caddyfile", "caddy-data:/data" ]
+    depends_on: [ engine ]
+volumes: { tripwire-data: {}, caddy-data: {} }

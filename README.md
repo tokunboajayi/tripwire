@@ -1,4 +1,4 @@
-# Tripwire
+# Vantrel
 
 **Set your risk. Fund it. AI trades for you, switching between 3 trading "brains" to fit the market, with a Rust safety layer it can't override.**
 
@@ -19,8 +19,10 @@ Hacklanta '26 · Fintech track · paper trading on live crypto · not financial 
 
 **The AI picks the brain. Rust checks every order.** The AI can tighten your limits but never loosen them.
 
+**Don't trust our track record, verify it.** Every trade, AI decision and blocked order is SHA-256 hash-chained and the chain head is written to Solana every 5 minutes. The Proof tab recomputes the chain in your browser and checks it against the blockchain.
+
 ## Results (real backtest, fees included)
-| | Tripwire (conservative) | Buy & hold |
+| | Vantrel (conservative) | Buy & hold |
 |---|---|---|
 | 2025–26 (held out) | **+0.4%** | **−27.5%** |
 | Worst drop, 2022–26 | **−17%** | **−76%** |
@@ -33,15 +35,35 @@ Small sample (98 trades). It lags in strong bull runs; it's built to protect. De
 |---|---|---|
 | `engine/` | Rust: indicators, regime, brains, risk gate, execution, API | Owner |
 | `data/` `backtest/` | market data, fixtures, replays, backtest | B · Data |
-| `agents/` `mcp/` | AI agents + MCP server | C · AI & MCP |
+| `agents/` `mcp/` | AI agents, Solana anchoring, MCP server | C · AI & MCP |
 | `web/` `landing/` | dashboard + public site | D · Product |
 | `docs/` | idea, spec, plan, prompts | everyone |
 
-## Run
+### Engine modules (`engine/src/`, spec §2)
+| Layer | Module | Job |
+|---|---|---|
+| Data | `market.rs` · `indicators.rs` | daily candles (live, offline fallback) · ATR/EMA/SMA/ADX/RSI2/Donchian/vol, parity-tested vs Python |
+| Brain | `regime.rs` · `brains.rs` | deterministic regime + AI acceptance (`REGIME_MISMATCH`) · entries, exits, sizing, the one-line why |
+| Safety | `risk.rs` | pure risk gate, every code unit-tested; agents can tighten limits, never loosen |
+| Money | `ledger.rs` · `executor.rs` | accounts, positions, round trips · Alpaca paper mirror |
+| Loop | `scheduler.rs` · `replay.rs` | 60s live tick · same brains on history, no look-ahead |
+| API | `routes/` · `sse.rs` · `auth.rs` | spec §9 endpoints · live stream · Auth0 / MCP / internal tokens |
+| Trust | `audit.rs` | SHA-256 hash chain anchored on Solana |
+
+### Web (`web/src/`, spec §10)
+`/` landing · `/onboard` risk slider → goal → fund · `/app` dashboard · `/replay` · `/backtest` · `/settings` (MCP, voice, iMessage, audit).
+
+## Run it locally (2 terminals)
 ```bash
-cp .env.example .env   # fill keys
-docker compose -f deploy/docker-compose.yml up
+cp .env.example .env                       # engine, agents and MCP all read this file; DEV=1 works with no keys
+cd web && npm install && npm run build     # dashboard
+cd ../engine && DEV=1 DATA_DIR=../data cargo run --release   # http://localhost:8080
+# AI agents: cd agents && pip install -r requirements.txt && python worker.py   (no key = rule-based mode; ANTHROPIC_API_KEY in .env = Claude)
+# optional: MCP for Claude Desktop               cd mcp && pip install -r requirements.txt  (config on the Settings page)
 ```
+Stock replay data (needs Alpaca keys): `python data/fetch_stocks.py`.
+Tests: `cd engine && cargo test` (risk-gate codes, tighten-only limits, AI override, **Rust-vs-Python parity** on 1,700 days of BTC).
+Deploy: `docker compose -f deploy/docker-compose.yml up -d --build`.
 
 ## Team
 | Name | Seat | GitHub |

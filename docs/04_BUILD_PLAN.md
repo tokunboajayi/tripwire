@@ -43,8 +43,8 @@ Interfaces are fixed in `03_BUILD_SPEC.md §9`. Agree at H0, then build in paral
 2. **Onboard (20s):** slide to Balanced, goal $5k/12 months, fund paper $10k.
 3. **Live (60s):** dashboard on live crypto. Point at regime bands: "Calm → Mean-Reversion brain. Volatility spikes → it switches to Breakout." Why-log line. Reasoning stream.
 4. **Safety (25s):** trigger agent "raise my size after a loss" → red `LIMIT_LOOSEN_DENIED`, 0.2ms. Drag slider to Conservative → limits shrink live.
-5. **Proof (30s):** backtest page. "2025–26: crypto −27.5%. Tripwire +0.4% to +1.5%, a quarter of the drawdown. Every fee included. Small sample — we say so."
-6. **Close (20s):** "AI chooses the brain. Rust enforces your limits. You just watch. I ran my own autonomous trading desk and learned a high win rate can still lose money — Tripwire is built on that lesson."
+5. **Proof (30s):** backtest page. "2025–26: crypto −27.5%. Vantrel +0.4% to +1.5%, a quarter of the drawdown. Every fee included. Small sample — we say so."
+6. **Close (20s):** "AI chooses the brain. Rust enforces your limits. You just watch. I ran my own autonomous trading desk and learned a high win rate can still lose money — Vantrel is built on that lesson."
 
 ## Judge Q&A
 - **Does it beat the market?** In bull runs, no — it trades upside for a much smaller drawdown. In the 2025–26 decline it stayed flat-to-green.

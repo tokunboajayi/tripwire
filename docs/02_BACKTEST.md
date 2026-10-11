@@ -25,7 +25,7 @@ Per-brain win rate (full): **Breakout 75% · Mean-Reversion 57% (69% OOS) · Tre
 ![v2 equity](../backtest/equity_curves_v2.png)
 
 ## The honest pitch line
-> "When crypto fell 27% in 2025–26, Tripwire finished flat-to-green with a quarter of the drawdown. Over four years it kept about half of buy-and-hold's gain with a quarter of the pain."
+> "When crypto fell 27% in 2025–26, Vantrel finished flat-to-green with a quarter of the drawdown. Over four years it kept about half of buy-and-hold's gain with a quarter of the pain."
 
 ## Caveats (say them before a judge does)
 - **Small sample:** 98 trades over 4 years, 29 out-of-sample. Directional evidence, not proof.

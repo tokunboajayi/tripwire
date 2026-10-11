@@ -1,5 +1,14 @@
 # 03 · Build Spec (source of truth)
 
+> **v1 is implemented** (Oct 9). What shipped differs from the plan below in these places:
+> - Market data: Binance public data API (no key) instead of Alpaca for prices; Alpaca is only used for news (optional).
+> - Storage: in-memory state saved to `DATA_DIR/state.json` every minute instead of SQLite.
+> - Each account is split into equal per-coin sleeves (matches the backtest exactly).
+> - Confidence sizing uses the accepted Regime Agent confidence (0.5–1.0), not the thesis.
+> - Alpaca paper mirror: set `MIRROR_USER`; that account's orders also go to Alpaca paper (results show in the why-log). Stock replay reads `data/stocks.json` from `data/fetch_stocks.py`.
+> - Voice: `GET /v1/voice` proxies ElevenLabs so the key stays on the server.
+> - Live signals are evaluated every 60s on the current (still-forming) daily candle; stops use the live price.
+
 ## 1. Stack
 | Layer | Choice |
 |---|---|
@@ -15,7 +24,7 @@
 
 ## 2. Repo layout
 ```
-tripwire/
+tripwire/            (repo name; product: Vantrel)
   engine/            Rust: src/{main,config,db,auth,routes/*,market,indicators,regime,brains,sizing,risk,executor,ledger,scheduler,replay,digest,sse}.rs
   agents/            Python: worker.py regime_agent.py thesis_agent.py prompts.py schemas.py cache.py
   mcp/               Python: server.py (read-only tools)
@@ -127,7 +136,7 @@ Agents use internal token only (not exposed publicly; bind /internal to docker n
 
 ## 13. Config / env
 ```
-DATABASE_URL=sqlite://tripwire.db
+DATABASE_URL=sqlite://vantrel.db
 SYMBOLS=BTC/USD,ETH/USD,SOL/USD        # add any; engine is symbol-agnostic
 FEE_BPS=25  SLIP_BPS=5
 APCA_API_KEY_ID= APCA_API_SECRET_KEY= APCA_PAPER_URL=https://paper-api.alpaca.markets

@@ -1,0 +1,27 @@
+[project]
+name = "vantrel-tv-mcp"
+version = "0.1.0"
+description = "TradingView MCP server for Vantrel: live chart context, regime detection, and trade overlays"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "httpx>=0.27",
+    "mcp>=1.12,<2",
+    "websockets>=13",
+]
+
+[project.scripts]
+vantrel-tv-mcp = "vantrel_tv_mcp.server:main"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
+[build-system]
+requires = ["uv_build>=0.12.16,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+]
