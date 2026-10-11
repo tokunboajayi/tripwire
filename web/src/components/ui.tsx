@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { BRAINS, REGIMES, type Brain, type Regime } from "../lib/api";
+import { Icon } from "./Icons";
 
 export function Tile({ label, children, sub, className = "" }: { label: string; children: ReactNode; sub?: ReactNode; className?: string }) {
   return (
@@ -14,9 +15,9 @@ export function Tile({ label, children, sub, className = "" }: { label: string; 
 export function BrainBadge({ regime, size = "md" }: { regime: Regime; size?: "sm" | "md" }) {
   const r = REGIMES[regime];
   return (
-    <span className={"inline-flex items-center gap-1.5 rounded-full border font-semibold " + (size === "sm" ? "px-2 py-0.5 text-xs" : "px-2.5 py-1 text-sm")}
+    <span className={"inline-flex items-center gap-1.5 rounded border font-semibold " + (size === "sm" ? "px-1.5 py-0.5 text-xs" : "px-2 py-1 text-sm")}
       style={{ color: r.color, borderColor: r.color + "55", background: r.color + "14" }}>
-      <i className="h-1.5 w-1.5 rounded-full" style={{ background: r.color }} />
+      <Icon n={BRAINS[r.brain].glyph} size={size === "sm" ? 13 : 15} />
       {BRAINS[r.brain].label}
     </span>
   );

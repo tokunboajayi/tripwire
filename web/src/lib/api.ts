@@ -48,11 +48,11 @@ export const REGIMES: Record<Regime, { label: string; color: string; brain: Brai
   HIGH_VOL: { label: "Volatile", color: "#F5B841", brain: "BREAKOUT" },
   TREND_DOWN: { label: "Falling", color: "#CBD5E1", brain: "SHIELD" },
 };
-export const BRAINS: Record<Brain, { label: string; does: string }> = {
-  MR: { label: "Mean-Reversion", does: "Buys sharp dips, sells the bounce" },
-  TREND: { label: "Trend", does: "Rides the move, sized by volatility" },
-  BREAKOUT: { label: "Breakout", does: "Buys confirmed breakouts, tight trailing stop" },
-  SHIELD: { label: "Shield", does: "Holds cash until the market turns" },
+export const BRAINS: Record<Brain, { label: string; does: string; glyph: "mr" | "trend" | "breakout" | "shield" }> = {
+  MR: { label: "Mean-Reversion", does: "Buys sharp dips, sells the bounce", glyph: "mr" },
+  TREND: { label: "Trend", does: "Rides the move, sized by volatility", glyph: "trend" },
+  BREAKOUT: { label: "Breakout", does: "Buys confirmed breakouts, tight trailing stop", glyph: "breakout" },
+  SHIELD: { label: "Shield", does: "Holds cash until the market turns", glyph: "shield" },
 };
 
 // ---------- formatting ----------

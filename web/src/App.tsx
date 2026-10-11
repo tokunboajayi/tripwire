@@ -115,7 +115,7 @@ function SignedIn({ path, logout }: { path: Route; logout: () => void }) {
 
   return (
     <div className="min-h-screen pb-20 md:pb-0">
-      <header className="sticky top-0 z-20 border-b border-ink-800 bg-ink-950/85 backdrop-blur">
+      <header className="sticky top-0 z-20 bg-ink-950/85 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-3 sm:px-6">
           <Logo onClick={() => navigate("/app")} />
           <nav className="ml-4 hidden items-center gap-1 md:flex" aria-label="Main">
@@ -126,6 +126,7 @@ function SignedIn({ path, logout }: { path: Route; logout: () => void }) {
           </nav>
           <div className="ml-auto flex items-center gap-2"><AuditBadge /><StatusPill status={acct.status} kill={acct.kill_switch} /></div>
         </div>
+        <div className="wire" aria-hidden />
       </header>
 
       {banner && path !== "/app" && (

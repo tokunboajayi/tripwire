@@ -4,7 +4,7 @@ import { BRAINS, REGIMES, type LiveBar, type Regime } from "../lib/api";
 
 const base = (el: HTMLElement): IChartApi => createChart(el, {
   // attribution is in the app footer (lightweight-charts NOTICE)
-  layout: { background: { type: ColorType.Solid, color: "transparent" }, textColor: "#94A3B8", fontFamily: "Inter, system-ui, sans-serif", attributionLogo: false },
+  layout: { background: { type: ColorType.Solid, color: "transparent" }, textColor: "#94A3B8", fontFamily: "JetBrains Mono, ui-monospace, monospace", fontSize: 11, attributionLogo: false },
   grid: { vertLines: { visible: false }, horzLines: { color: "rgba(148,163,184,.08)" } },
   rightPriceScale: { borderVisible: false },
   timeScale: { borderVisible: false },
@@ -38,7 +38,11 @@ function segments(bars: Candle[]): Seg[] {
  * so alternating regimes never smear into each other; wide bands carry their brain's name.
  * `live` moves today's candle in real time; `stream` appends replay bars one by one without rebuilding the chart.
  */
-export function RegimeChart({ data, markers = [], height = 380, live, stream }: { data: Candle[]; markers?: Marker[]; height?: number; live?: LiveBar; stream?: Candle[] }) {
+export function RegimeChart({ data, markers = [], height = 380, live, stream, wires = [] }: {
+  data: Candle[]; markers?: Marker[]; height?: number; live?: LiveBar; stream?: Candle[];
+  /** amber "tripwire" price lines, e.g. a position's stop-loss */
+  wires?: { price: number; title: string }[];
+}) {
   const el = useRef<HTMLDivElement>(null);
   const series = useRef<ISeriesApi<"Candlestick">>();
   const chart = useRef<IChartApi>();
@@ -112,6 +116,15 @@ export function RegimeChart({ data, markers = [], height = 380, live, stream }: 
       shape: m.side === "buy" ? "arrowUp" : "arrowDown", text: m.text,
     })));
   }, [data, stream, markers]);
+
+  // tripwires: stop-loss levels drawn as amber dashed lines
+  const wireKey = wires.map((w) => w.title + w.price.toFixed(2)).join("|");
+  useEffect(() => {
+    const s = series.current;
+    if (!s || !wires.length) return;
+    const made = wires.map((w) => s.createPriceLine({ price: w.price, color: "#F5B841", lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: w.title }));
+    return () => { made.forEach((l) => { try { s.removePriceLine(l); } catch { /* chart already removed */ } }); };
+  }, [wireKey, data]);
 
   // live: move today's candle
   useEffect(() => {

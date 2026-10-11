@@ -3,20 +3,32 @@
 @tailwind utilities;
 
 @layer base {
-  body { @apply bg-ink-950 text-slate-200 antialiased; font-feature-settings: "cv11", "ss01"; }
-  ::selection { @apply bg-up/30; }
-  :focus-visible { @apply outline outline-2 outline-offset-2 outline-up; }
+  /* "The Wire": a faint instrument grid behind everything; amber (the tripwire) is the brand color */
+  body {
+    @apply bg-ink-950 text-slate-200 antialiased;
+    background-image:
+      radial-gradient(1200px 600px at 10% -10%, rgba(245, 184, 65, 0.06), transparent 60%),
+      linear-gradient(rgba(148, 163, 184, 0.045) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(148, 163, 184, 0.045) 1px, transparent 1px);
+    background-size: auto, 40px 40px, 40px 40px;
+    background-attachment: fixed;
+  }
+  ::selection { @apply bg-wire/30; }
+  :focus-visible { @apply outline outline-2 outline-offset-2 outline-wire; }
 }
 
 @layer components {
-  .card { @apply rounded-2xl border border-ink-700/70 bg-ink-900 shadow-card; }
-  .label { @apply text-xs font-medium uppercase tracking-wider text-slate-400; }
-  .num { font-variant-numeric: tabular-nums; }
-  .btn { @apply inline-flex items-center justify-center gap-2 rounded-xl border border-ink-600 bg-ink-800 px-4 py-2.5 text-sm font-semibold text-slate-100 transition hover:border-slate-500 hover:bg-ink-700 disabled:cursor-not-allowed disabled:opacity-50; }
-  .btn-primary { @apply border-up bg-up text-ink-950 hover:border-emerald-300 hover:bg-emerald-300; }
+  /* sharp, hairline instrument panels instead of soft rounded cards */
+  .card { @apply rounded-lg border border-ink-700/80 bg-ink-900/95 shadow-card; }
+  .label { @apply font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-slate-400; }
+  .num { @apply font-mono; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+  .btn { @apply inline-flex items-center justify-center gap-2 rounded-md border border-ink-600 bg-ink-800 px-4 py-2.5 text-sm font-semibold text-slate-100 transition hover:border-slate-500 hover:bg-ink-700 disabled:cursor-not-allowed disabled:opacity-50; }
+  .btn-primary { @apply border-wire bg-wire text-ink-950 hover:border-amber-300 hover:bg-amber-300; }
+  /* the wire: an amber hairline that fades at both ends */
+  .wire { @apply h-px bg-gradient-to-r from-transparent via-wire/70 to-transparent; }
   .btn-danger { @apply border-down/50 bg-down/10 text-red-300 hover:border-down hover:bg-down/20; }
   .btn-ghost { @apply border-transparent bg-transparent hover:border-ink-600 hover:bg-ink-800; }
-  .input { @apply w-full rounded-xl border border-ink-600 bg-ink-850 px-4 py-3 text-lg font-semibold text-white placeholder:text-slate-500 focus:border-up focus:outline-none; }
+  .input { @apply w-full rounded-md border border-ink-600 bg-ink-850 px-4 py-3 text-lg font-semibold text-white placeholder:text-slate-400 focus:border-wire focus:outline-none; }
 }
 
 /* risk slider */

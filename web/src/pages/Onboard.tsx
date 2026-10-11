@@ -37,7 +37,7 @@ export default function Onboard({ done, logout }: { done: () => void; logout: ()
         <ol className="mb-8 grid grid-cols-3 gap-2" aria-label="Setup progress">
           {STEPS.map((s, i) => (
             <li key={s} aria-current={i === step ? "step" : undefined}>
-              <div className={"h-1.5 rounded-full " + (i <= step ? "bg-up" : "bg-ink-700")} />
+              <div className={"h-1.5 rounded-full " + (i <= step ? "bg-wire" : "bg-ink-700")} />
               <div className={"mt-2 text-xs font-semibold " + (i === step ? "text-white" : "text-slate-400")}>{i + 1}. {s}</div>
             </li>
           ))}
@@ -73,7 +73,7 @@ export default function Onboard({ done, logout }: { done: () => void; logout: ()
               </div>
               <div className="mt-6 flex flex-wrap gap-2">
                 {GOALS.map(([g, m]) => (
-                  <button key={g} className={"btn " + (goal === g && months === m ? "border-up text-up" : "")} onClick={() => { setGoal(g); setMonths(m); }}>
+                  <button key={g} className={"btn " + (goal === g && months === m ? "border-wire text-wire" : "")} onClick={() => { setGoal(g); setMonths(m); }}>
                     +{usd(g, 0)} in {m} mo
                   </button>
                 ))}
@@ -90,7 +90,7 @@ export default function Onboard({ done, logout }: { done: () => void; logout: ()
                 <input className="input py-4 pl-9 text-3xl num" type="number" inputMode="numeric" min={100} max={1000000} value={cash || ""} onChange={(e) => setCash(+e.target.value)} />
               </label>
               <div className="mt-4 flex flex-wrap gap-2">
-                {FUNDS.map((f) => <button key={f} className={"btn " + (cash === f ? "border-up text-up" : "")} onClick={() => setCash(f)}>{usd(f, 0)}</button>)}
+                {FUNDS.map((f) => <button key={f} className={"btn " + (cash === f ? "border-wire text-wire" : "")} onClick={() => setCash(f)}>{usd(f, 0)}</button>)}
               </div>
               <div className="mt-8 rounded-xl border border-ink-700 bg-ink-850 p-5">
                 <div className="label">Summary</div>
