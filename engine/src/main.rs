@@ -3,8 +3,8 @@
 mod audit;
 mod auth;
 mod brains;
+mod broker;
 mod config;
-mod executor;
 mod indicators;
 mod ledger;
 mod market;
@@ -52,7 +52,8 @@ async fn main() {
     let (tx, _) = broadcast::channel(1024);
     let (audit, anchors): (Vec<audit::Audit>, Vec<audit::Anchor>) = load_json(&format!("{}/audit.json", cfg.data_dir));
     let accounts: HashMap<String, ledger::Account> = load_json(&format!("{}/state.json", cfg.data_dir));
-    let world = state::World::new(tx, accounts, audit, anchors, cfg.mirror_user.clone());
+    let mut world = state::World::new(tx, accounts, audit, anchors, cfg.mirror_user.clone());
+    world.live = load_json(&format!("{}/live.json", cfg.data_dir));
     let app: S = Arc::new(App {
         w: Mutex::new(world),
         http: reqwest::Client::builder().timeout(Duration::from_secs(20)).build().unwrap(),
@@ -65,5 +66,11 @@ async fn main() {
 
     let listener = tokio::net::TcpListener::bind(("0.0.0.0", app.cfg.port)).await.unwrap();
     println!("Vantrel engine on :{}{}", app.cfg.port, if app.cfg.dev { " (DEV sign-in enabled)" } else { "" });
+    match app.cfg.broker {
+        broker::Mode::Live => println!("BROKER=live: REAL MONEY. Capital ${:.0}, max ${:.0}/order, ${:.0} deployed, ${:.0} daily loss.",
+            app.cfg.guard.capital, app.cfg.guard.max_order, app.cfg.guard.max_deployed, app.cfg.guard.max_daily_loss),
+        broker::Mode::Paper => println!("BROKER=paper: owner's trades rehearsed at Alpaca paper (${:.0} capital).", app.cfg.guard.capital),
+        broker::Mode::Off => {}
+    }
     axum::serve(listener, routes::router(app).into_make_service_with_connect_info::<std::net::SocketAddr>()).await.unwrap();
 }

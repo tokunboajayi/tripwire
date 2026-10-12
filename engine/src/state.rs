@@ -29,8 +29,6 @@ pub struct Replay {
     #[serde(skip)] pub gen: u64,
 }
 
-/// Pending Alpaca paper mirror order: (symbol, side, qty).
-pub type MirrorOrder = (String, String, f64);
 
 pub struct World {
     pub markets: BTreeMap<String, Market>,
@@ -41,7 +39,8 @@ pub struct World {
     pub next_id: u64,
     pub tx: broadcast::Sender<Ev>,
     pub mirror_user: Option<String>,
-    pub mirror_queue: Vec<MirrorOrder>,
+    pub mirror_queue: Vec<crate::broker::Order>,
+    pub live: crate::broker::Live,
     pub audit: Vec<Audit>,
     pub anchors: Vec<Anchor>,
 }
@@ -49,7 +48,7 @@ pub struct World {
 impl World {
     pub fn new(tx: broadcast::Sender<Ev>, accounts: HashMap<String, Account>, audit: Vec<Audit>, anchors: Vec<Anchor>, mirror_user: Option<String>) -> Self {
         World { markets: BTreeMap::new(), accounts, replays: HashMap::new(), kill: false, events: VecDeque::new(), next_id: 0, tx,
-            mirror_user, mirror_queue: vec![], audit, anchors }
+            mirror_user, mirror_queue: vec![], live: Default::default(), audit, anchors }
     }
 
     /// Record an event: audit chain (if audited), account/global ring buffer, SSE broadcast.
@@ -71,7 +70,10 @@ impl World {
 
     pub fn prices(&self) -> HashMap<String, f64> { self.markets.iter().map(|(k, m)| (k.clone(), m.price)).collect() }
 
-    pub fn queue_mirror(&mut self, user: &str, sym: &str, side: &str, qty: f64) {
-        if self.mirror_user.as_deref() == Some(user) { self.mirror_queue.push((sym.into(), side.into(), qty)); }
+    /// Owner account only: the decision is also sent to the broker (see broker.rs).
+    pub fn queue_mirror(&mut self, user: &str, sym: &str, side: &str, sim_notional: f64, price: f64) {
+        if self.mirror_user.as_deref() != Some(user) { return }
+        let start = self.accounts.get(user).map_or(0., |a| a.start_cash);
+        self.mirror_queue.push(crate::broker::Order::new(sym, side, sim_notional, start, price));
     }
 }

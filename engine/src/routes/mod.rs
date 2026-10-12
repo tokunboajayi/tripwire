@@ -86,6 +86,8 @@ pub fn router(app: S) -> Router {
         .route("/v1/replays/me/stop", post(account::stop_replay))
         .route("/v1/voice", get(account::voice))
         .route("/v1/admin/kill-all", post(account::kill_all))
+        .route("/v1/live", get(account::live_status))
+        .route("/v1/live/:action", post(account::live_action))
         .merge(internal)
         .with_state(app)
         .layer(DefaultBodyLimit::max(16 * 1024))

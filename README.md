@@ -29,6 +29,8 @@
 - **Earned risk:** the AI can always tighten your limits. It can only ask to raise them back toward the ceiling *you* set, and only after it has earned it: 3+ trades in 30 days, 55%+ wins, not losing today, and at most +25% per step. Otherwise Rust answers `RISK_NOT_EARNED`, `RISK_STEP_TOO_BIG` or `LIMIT_LOOSEN_DENIED`.
 - **Explains itself:** every trade, brain switch and blocked order comes with a one-line reason, in text and (optionally) spoken by ElevenLabs.
 
+**Trade your own money, carefully (v2).** `BROKER=paper|live` sends the owner account's decisions to Alpaca, scaled to a capital figure, behind dollar caps enforced in Rust (per order, total deployed, daily loss, orders per day). Live mode refuses to start unless it is configured deliberately. Plan, go/no-go criteria and stop rules: [`docs/08_ROADMAP.md`](docs/08_ROADMAP.md).
+
 **Don't trust our track record, verify it.** Every trade, AI decision and blocked order is SHA-256 hash-chained, and the chain head is written to Solana every 5 minutes. Settings → *Verify the track record* recomputes the chain in your browser and checks it against the blockchain.
 
 ## Results (real prices, fees included)
@@ -78,7 +80,7 @@ Small sample (98 trades in the backtest). It lags in strong bull runs; it's buil
 | Data | `market.rs` · `indicators.rs` | daily candles (live, offline fallback) · ATR/EMA/SMA/ADX/RSI2/Donchian/vol, parity-tested vs Python |
 | Brain | `regime.rs` · `brains.rs` | deterministic regime + AI acceptance (`REGIME_MISMATCH`) · entries, exits, sizing, the one-line why |
 | Safety | `risk.rs` | pure risk gate, every code unit-tested; agents tighten freely, loosen only when earned |
-| Money | `ledger.rs` · `executor.rs` | accounts, positions, round trips · Alpaca paper mirror |
+| Money | `ledger.rs` · `broker.rs` | accounts, positions, round trips · Alpaca paper/live broker with dollar guards |
 | Loop | `scheduler.rs` · `replay.rs` | 60s live tick · same brains on history, no look-ahead |
 | API | `routes/` · `sse.rs` · `auth.rs` | spec §9 endpoints · live stream · Auth0 / guest / MCP / internal tokens |
 | Trust | `audit.rs` | SHA-256 hash chain anchored on Solana |
@@ -105,6 +107,7 @@ Stock replay data (needs Alpaca keys): `python data/fetch_stocks.py`. Keys never
 | TradingView MCP | `cd tv-mcp && pytest -q` | regime classifier, read-only bridge |
 | End to end | `python tests/e2e.py .` | API, risk gate, agent routes, SSE, replay, agents, MCP servers against a real engine |
 | Live feed + voice | `python tests/live_feed.py <engine>` | live prices, SSE stream, ElevenLabs error passthrough |
+| Real-money broker | `python tests/live_broker.py <engine>` | live mode refuses unsafe configs, dollar-loss halt, kill switch halts real money, exits reach the broker with live keys only |
 | Public sign-in | `python tests/public_signin.py <engine>` | production config (no DEV): guest ids work, dev/bare-name tokens refused |
 | UI (Playwright) | `cd tests/ui && npm ci && node journey.mjs` (+ `reload`, `voice`, `narration`, `auth0`) | real browser: sign up, refresh/deep links, single-voice playback, narrated replay, Auth0 mode |
 

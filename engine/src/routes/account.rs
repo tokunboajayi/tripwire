@@ -137,7 +137,7 @@ pub async fn action(State(app): State<S>, h: HeaderMap, Path(action): Path<Strin
     let px = w.prices();
     let a = w.accounts.get_mut(&u).ok_or(err(StatusCode::NOT_FOUND, "no account"))?;
     let mut evs: Vec<(&str, String, Value)> = vec![];
-    let mut mirror: Vec<(String, f64)> = vec![];
+    let mut mirror: Vec<(String, f64, f64)> = vec![];
     match action.as_str() {
         "pause" => { a.status = Status::Paused; evs.push(("status", "Paused. Open positions keep their stops.".into(), json!({}))) }
         "resume" => { a.status = Status::Active; evs.push(("status", "Resumed.".into(), json!({}))) }
@@ -146,8 +146,8 @@ pub async fn action(State(app): State<S>, h: HeaderMap, Path(action): Path<Strin
             let t = now();
             for (s, sl) in a.sleeves.iter_mut() {
                 let Some(q) = sl.pos.as_ref().map(|p| p.qty) else { continue };
-                mirror.push((s.clone(), q));
                 let price = px.get(s).copied().unwrap_or(sl.pos.as_ref().unwrap().entry);
+                mirror.push((s.clone(), q * price, price));
                 let (m, d) = close_pos(s, sl, price * (1. - SLIP), "flatten", t, &mut a.trades);
                 evs.push(("order", m, d));
             }
@@ -168,7 +168,7 @@ pub async fn action(State(app): State<S>, h: HeaderMap, Path(action): Path<Strin
         }
         _ => return Err(err(StatusCode::NOT_FOUND, "action")),
     }
-    for (s, q) in mirror { w.queue_mirror(&u, &s, "sell", q); }
+    for (s, n, p) in mirror { w.queue_mirror(&u, &s, "sell", n, p); }
     for (k, m, d) in evs { w.emit(Some(&u), k, m, d); }
     ok(json!({"ok": true}))
 }
@@ -181,6 +181,7 @@ pub async fn kill_all(State(app): State<S>, h: HeaderMap) -> R {
     let mut w = app.w.lock().unwrap();
     w.kill = !w.kill;
     let k = w.kill;
+    if k && w.live.halted.is_none() { w.live.halted = Some("KILL_SWITCH".into()); } // real money stops too; resuming it is a separate, explicit step
     w.emit(None, "kill", if k { "GLOBAL KILL SWITCH ON: all new orders blocked.".into() } else { "Global kill switch off.".into() }, json!({"on": k}));
     ok(json!({"kill": k}))
 }
@@ -278,4 +279,44 @@ fn speech_text(t: &str) -> String {
         Some(i) if i > CAP / 3 => head[..=i].to_string(),
         _ => head,
     }
+}
+
+/// Broker controls belong to the account being traded (MIRROR_USER) or the OWNER_USER; nobody else sees them.
+async fn live_owner(app: &S, h: &HeaderMap) -> Result<String, crate::ApiErr> {
+    let u = writer(app, h).await?;
+    if app.cfg.broker == crate::broker::Mode::Off { return Err(err(StatusCode::NOT_FOUND, "broker off")) }
+    if app.cfg.mirror_user.as_deref() == Some(u.as_str()) || app.cfg.owner.as_deref() == Some(u.as_str()) { Ok(u) }
+    else { Err(err(StatusCode::FORBIDDEN, "owner only")) }
+}
+
+/// Broker status: mode, dollar caps, broker equity/positions, halt reason, recent fills with slippage vs the model.
+pub async fn live_status(State(app): State<S>, h: HeaderMap) -> R {
+    live_owner(&app, &h).await?;
+    let w = app.w.lock().unwrap();
+    let l = &w.live;
+    ok(json!({"mode": app.cfg.broker, "keys": crate::broker::keys_set(app.cfg.broker), "guard": app.cfg.guard, "halted": l.halted,
+        "equity": l.equity, "cash": l.cash, "day_start_equity": l.day_start_equity, "day_pnl": l.equity.zip(l.day_start_equity).map(|(e, s)| e - s),
+        "deployed": l.deployed, "orders_today": l.orders_today, "positions": l.positions, "fills": l.fills.iter().rev().collect::<Vec<_>>(),
+        "last_sync": l.last_sync, "sync_error": l.sync_error, "drift": l.drift, "kill_switch": w.kill}))
+}
+
+/// halt · resume · flatten · sync
+pub async fn live_action(State(app): State<S>, h: HeaderMap, Path(action): Path<String>) -> R {
+    live_owner(&app, &h).await?;
+    match action.as_str() {
+        "halt" | "resume" => {
+            let mut w = app.w.lock().unwrap();
+            if action == "resume" && w.kill { return Err(err(StatusCode::CONFLICT, "global kill switch is on")) }
+            w.live.halted = if action == "halt" { Some("OWNER_HALT".into()) } else { None };
+            let u = w.mirror_user.clone();
+            let msg = if action == "halt" { "Broker halted by you: no new buys. Stops and exits still run." } else { "Broker resumed: buys allowed again, inside the dollar caps." };
+            w.emit(u.as_deref(), "mirror", msg.into(), json!({"ok": true, "code": action.to_uppercase()}));
+            crate::broker::save(&app.cfg.data_dir, &w.live);
+        }
+        "flatten" => crate::broker::flatten(&app).await.map_err(|e| err(StatusCode::BAD_GATEWAY, &e))?,
+        "sync" => {}
+        _ => return Err(err(StatusCode::NOT_FOUND, "action")),
+    }
+    crate::broker::sync(&app).await;
+    live_status(State(app), h).await
 }
