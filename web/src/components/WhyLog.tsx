@@ -16,12 +16,13 @@ const KIND: Record<string, { icon: IconName; tone: string }> = {
   status: { icon: "ok", tone: "text-slate-300 bg-slate-400/10" },
   account: { icon: "wallet", tone: "text-up bg-up/10" },
   mirror: { icon: "external", tone: "text-slate-300 bg-slate-400/10" },
+  pm: { icon: "target", tone: "text-wire bg-wire/10" },
   anchor: { icon: "chain", tone: "text-slate-300 bg-slate-400/10" },
 };
 
 const FILTERS: [string, string, (k: string) => boolean][] = [
   ["all", "All", () => true],
-  ["trades", "Trades", (k) => k === "order" || k === "mirror"],
+  ["trades", "Trades", (k) => k === "order" || k === "mirror" || k === "pm"],
   ["blocked", "Blocked", (k) => k === "gate_block" || k === "auto_pause" || k === "kill"],
   ["ai", "AI", (k) => ["thesis", "ai_regime", "regime", "digest", "limits"].includes(k)],
 ];

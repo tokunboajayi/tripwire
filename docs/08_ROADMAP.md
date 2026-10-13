@@ -12,6 +12,8 @@
 | ✅ | **Live can't start by accident:** it needs `LIVE_CONFIRM=real-money`, its own keys (`APCA_LIVE_*`, separate from the paper keys), a capital figure and `MIRROR_USER`. It refuses `DEV=1`, and it refuses caps above the capital. |
 | ✅ | **Owner controls:** Settings → Broker shows broker equity, today's P&L, deployed, orders, fills with slippage vs the model, and Halt / Resume / Flatten. The global kill switch also halts real money; resuming is a separate, explicit step. |
 | ✅ | **Sync and drift:** every minute it pulls broker equity and positions, enforces the daily loss, and warns when the ledger and the broker disagree. |
+| ✅ | **Prediction-market arbitrage** (`engine/src/pm/`): Kalshi + Polymarket, its own fast loop (default every 2 s). Buys both sides of the same event when the total is under the $1 payout after fees (cross-venue pairs, and outcome groups on one venue). It only trades pairs you have verified, works within a per-set cap, an exposure cap, a rate limit and a cooldown, settles automatically from Kalshi, and its events go into the audit chain. Live mode covers Kalshi legs only: orders are signed fill-or-kill, and a failed leg halts everything. |
+| ✅ | **Capital allocator:** scores each venue (crypto, Kalshi, Polymarket) by profit made plus profit missed for lack of cash, then suggests transfers. It never moves money between brokers itself. |
 | ✅ | **Bug fixed:** the 60-second trading tick never fired in release builds (`now() - i64::MIN` overflowed and wrapped). Paper accounts on the live site had not been trading. Covered by `tests/live_broker.py`. |
 
 ## Phase 1: Paper rehearsal (2–4 weeks, starting now)
@@ -33,6 +35,18 @@ Redeploy, then open Settings → Broker. It should say **PAPER REHEARSAL** and s
 - [ ] **No unresolved drift** warnings.
 - [ ] You triggered Halt, Resume, Flatten and the kill switch once each, and each did what it says.
 - [ ] Paper P&L is **not more than 2 points worse** than the simulated account over the same period. If it is, fees and slippage are eating the edge, so don't go live.
+
+## Phase 1b: Prediction-market arbitrage, paper (runs alongside Phase 1)
+
+**Setup:** copy `deploy/pairs.example.json` to `$DATA_DIR/pairs.json` and add real pairs (a Kalshi ticker plus the Polymarket YES/NO token ids for the same event). Set `verified: true` only after reading **both** venues' resolution rules. Then set `PM_MODE=paper` and redeploy. Settings → Prediction-market arbitrage shows the opportunities, filled sets, locked/realised profit and where the money should be.
+
+**Go / no-go to live (Kalshi legs only):**
+- [ ] It ran **≥ 14 days** with **≥ 20 sets** taken.
+- [ ] **Every set settled as a win.** A single loss means a pair wasn't really the same event: fix the watch list before anything else.
+- [ ] The edge after fees **survives a 1¢ worse fill on every leg.** Paper fills at the quoted ask, while live books move.
+- [ ] Live setup: `PM_MODE=live`, `KALSHI_KEY_ID`, `KALSHI_PRIVATE_KEY_PATH` and `PM_LIVE_CONFIRM=real-money`, starting with `PM_MAX_ARB_USD=20` and `PM_MAX_EXPOSURE_USD=200`.
+
+**Honest limits:** paper fills assume the full ask size is there; it may not be. Capital stays locked until each event settles, which can take weeks, so returns per year depend on settlement time. Polymarket orders need a wallet-signed integration plus confirmed access where you live, so its legs stay paper until then. Cross-venue sets also carry resolution-rule risk, which no code removes. Only verification does.
 
 ## Phase 2: Live micro ($200–$500)
 
@@ -75,7 +89,11 @@ Order of priority. Each item ships with a test:
 5. **Startup reconciliation:** on boot, compare broker positions with the ledger and halt if they differ.
 6. **Tax export:** CSV of live fills. Every sell is a taxable event, and Alpaca also issues a 1099.
 
-## On "high-frequency trading": not for this account
+## On "high-frequency trading"
+
+**What we built:** the fastest loop that can pay. The prediction-market engine re-prices every watched book every 2 s, or faster with `PM_EVERY_MS`; a pass over 9 markets takes about 10–20 ms. In prediction markets, speed is where the edge is: price gaps between venues close in seconds to minutes. Next step: websocket order-book feeds, so it reacts on each book change instead of each poll.
+
+**What stays out of reach:** microsecond trading.
 
 True HFT means microsecond reactions, co-located servers, direct exchange feeds, and fees of a fraction of a basis point. Vantrel is the opposite, and that's deliberate:
 - **Fees decide it.** Retail crypto costs about 15–25 bps per side at Alpaca. Our own first version traded 4-hour bars and **lost money because fees ate the small moves** (`docs/02_BACKTEST.md`: BTC −53%). Faster trading means more trades, more fees and a worse result.

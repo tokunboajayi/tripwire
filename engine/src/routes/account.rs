@@ -181,7 +181,8 @@ pub async fn kill_all(State(app): State<S>, h: HeaderMap) -> R {
     let mut w = app.w.lock().unwrap();
     w.kill = !w.kill;
     let k = w.kill;
-    if k && w.live.halted.is_none() { w.live.halted = Some("KILL_SWITCH".into()); } // real money stops too; resuming it is a separate, explicit step
+    if k && w.live.halted.is_none() { w.live.halted = Some("KILL_SWITCH".into()); }
+    if k { let mut pm = app.pm.st.lock().unwrap(); if pm.halted.is_none() { pm.halted = Some("KILL_SWITCH".into()); } } // real money stops too; resuming it is a separate, explicit step
     w.emit(None, "kill", if k { "GLOBAL KILL SWITCH ON: all new orders blocked.".into() } else { "Global kill switch off.".into() }, json!({"on": k}));
     ok(json!({"kill": k}))
 }
@@ -319,4 +320,39 @@ pub async fn live_action(State(app): State<S>, h: HeaderMap, Path(action): Path<
     }
     crate::broker::sync(&app).await;
     live_status(State(app), h).await
+}
+
+/// Prediction-market controls: OWNER_USER or MIRROR_USER only.
+async fn pm_owner(app: &S, h: &HeaderMap) -> Result<String, crate::ApiErr> {
+    let u = writer(app, h).await?;
+    if app.pm.cfg.mode == crate::pm::Mode::Off { return Err(err(StatusCode::NOT_FOUND, "prediction markets off")) }
+    if app.cfg.mirror_user.as_deref() == Some(u.as_str()) || app.cfg.owner.as_deref() == Some(u.as_str()) { Ok(u) }
+    else { Err(err(StatusCode::FORBIDDEN, "owner only")) }
+}
+
+pub async fn pm_status(State(app): State<S>, h: HeaderMap) -> R { pm_owner(&app, &h).await?; ok(crate::pm::status(&app)) }
+
+/// halt · resume
+pub async fn pm_action(State(app): State<S>, h: HeaderMap, Path(action): Path<String>) -> R {
+    pm_owner(&app, &h).await?;
+    let msg = match action.as_str() {
+        "halt" => { app.pm.st.lock().unwrap().halted = Some("OWNER_HALT".into()); "Arbitrage halted by you: no new sets. Open sets stay until they settle." }
+        "resume" => {
+            if app.w.lock().unwrap().kill { return Err(err(StatusCode::CONFLICT, "global kill switch is on")) }
+            app.pm.st.lock().unwrap().halted = None; "Arbitrage resumed."
+        }
+        _ => return Err(err(StatusCode::NOT_FOUND, "action")),
+    };
+    { let mut w = app.w.lock().unwrap(); let o = app.cfg.owner.clone().or(w.mirror_user.clone()); w.emit(o.as_deref(), "pm", msg.into(), json!({"code": action.to_uppercase()})); }
+    ok(crate::pm::status(&app))
+}
+
+#[derive(Deserialize)]
+pub struct SettleQ { venue: crate::pm::arb::Venue }
+
+/// Manual settlement (Polymarket-only sets, or a venue that settled without the engine seeing it).
+pub async fn pm_settle(State(app): State<S>, h: HeaderMap, Path(id): Path<String>, Query(q): Query<SettleQ>) -> R {
+    pm_owner(&app, &h).await?;
+    if !crate::pm::close(&app, &id, q.venue, "settled by owner") { return Err(err(StatusCode::NOT_FOUND, "position")) }
+    ok(crate::pm::status(&app))
 }

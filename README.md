@@ -31,6 +31,8 @@
 
 **Trade your own money, carefully (v2).** `BROKER=paper|live` sends the owner account's decisions to Alpaca, scaled to a capital figure, behind dollar caps enforced in Rust (per order, total deployed, daily loss, orders per day). Live mode refuses to start unless it is configured deliberately. Plan, go/no-go criteria and stop rules: [`docs/08_ROADMAP.md`](docs/08_ROADMAP.md).
 
+**Prediction-market arbitrage (v2).** `PM_MODE=paper|live` watches Kalshi and Polymarket every 2 s and buys both sides of the same event when the total costs less than the $1 payout after fees. It only trades pairs you've verified, behind dollar caps, and settles automatically. A capital allocator suggests where each dollar should sit across crypto, Kalshi and Polymarket.
+
 **Don't trust our track record, verify it.** Every trade, AI decision and blocked order is SHA-256 hash-chained, and the chain head is written to Solana every 5 minutes. Settings → *Verify the track record* recomputes the chain in your browser and checks it against the blockchain.
 
 ## Results (real prices, fees included)
@@ -108,6 +110,7 @@ Stock replay data (needs Alpaca keys): `python data/fetch_stocks.py`. Keys never
 | End to end | `python tests/e2e.py .` | API, risk gate, agent routes, SSE, replay, agents, MCP servers against a real engine |
 | Live feed + voice | `python tests/live_feed.py <engine>` | live prices, SSE stream, ElevenLabs error passthrough |
 | Real-money broker | `python tests/live_broker.py <engine>` | live mode refuses unsafe configs, dollar-loss halt, kill switch halts real money, exits reach the broker with live keys only |
+| Prediction markets | `python tests/pm_arb.py <engine>` | cross-venue and group arbs filled, unverified pairs never trade, caps, settlement, signed fill-or-kill Kalshi orders, failed leg halts |
 | Public sign-in | `python tests/public_signin.py <engine>` | production config (no DEV): guest ids work, dev/bare-name tokens refused |
 | UI (Playwright) | `cd tests/ui && npm ci && node journey.mjs` (+ `reload`, `voice`, `narration`, `auth0`) | real browser: sign up, refresh/deep links, single-voice playback, narrated replay, Auth0 mode |
 

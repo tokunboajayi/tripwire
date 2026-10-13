@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { api, speak } from "../lib/api";
 import { VerifyPanel } from "../components/Audit";
 import { LiveBroker } from "../components/LiveBroker";
+import { PredictionArb } from "../components/PredictionArb";
 import { Icon } from "../components/Icons";
 
 /** `/settings` — talk to your portfolio (MCP), voice alerts, audit trail. */
@@ -14,6 +15,7 @@ export default function Settings({ acct, cfg, voice, toggleVoice, reload, logout
       <h1 className="text-2xl font-bold text-white">Settings</h1>
 
       {cfg.broker && cfg.broker !== "off" && <LiveBroker mode={cfg.broker} />}
+      {cfg.pm && cfg.pm !== "off" && <PredictionArb />}
 
       <section className="card p-6">
         <h2 className="flex items-center gap-2 text-lg font-semibold text-white"><Icon n="bolt" size={18} className="text-violet-300" />Talk to your portfolio (Claude Desktop)</h2>

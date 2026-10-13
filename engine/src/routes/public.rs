@@ -15,7 +15,7 @@ pub async fn config(State(app): State<S>) -> R {
     ok(json!({
         "voice": std::env::var("ELEVENLABS_API_KEY").is_ok_and(|k| !k.is_empty()),
         "stocks": std::path::Path::new(&format!("{}/stocks.json", app.cfg.data_dir)).exists(),
-        "mirror": mirror, "broker": app.cfg.broker, "symbols": app.cfg.symbols, "dev": app.cfg.dev, "guest": app.cfg.guest,
+        "mirror": mirror, "broker": app.cfg.broker, "pm": app.pm.cfg.mode, "symbols": app.cfg.symbols, "dev": app.cfg.dev, "guest": app.cfg.guest,
         "signin": if app.cfg.auth0_domain.is_some() { "auth0" } else if app.cfg.guest || app.cfg.dev { "name" } else { "none" },
     }))
 }

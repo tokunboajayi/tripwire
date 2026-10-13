@@ -26,7 +26,7 @@ export async function api<T = any>(path: string, method = "GET", body?: unknown)
 }
 
 export const EVENT_KINDS = ["tick", "order", "gate_block", "regime", "ai_regime", "thesis", "limits", "status", "auto_pause", "digest", "kill",
-  "account", "reasoning", "replay_tick", "replay_order", "replay_regime", "replay_done", "mirror", "anchor"] as const;
+  "account", "reasoning", "replay_tick", "replay_order", "replay_regime", "replay_done", "mirror", "pm", "anchor"] as const;
 export type Ev = { id: number; ts: number; account?: string | null; kind: string; msg: string; data: any };
 /** Latest live price per symbol from SSE `tick` events (engine refreshes every ~10s). */
 export type LiveBar = { t: number; o: number; h: number; l: number; c: number; v: number };
