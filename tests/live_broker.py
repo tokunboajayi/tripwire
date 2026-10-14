@@ -53,7 +53,7 @@ OWNER_H = {"authorization": "Bearer guest:AJ.0123456789abcdef"}
 OTHER_H = {"authorization": "Bearer guest:Eve.fedcba9876543210"}
 BASE = {"PORT": "0", "INTERNAL_TOKEN": "x" * 32, "MARKET_URL": "http://127.0.0.1:9", "OFFLINE_FIXTURES": FIXTURES, "WEB_DIR": "/nonexistent",
         "SYMBOLS": "BTC", "DEV": "0", "MIRROR_USER": OWNER, "OWNER_USER": OWNER, "BROKER": "live", "LIVE_CONFIRM": "real-money",
-        "BROKER_CAPITAL_USD": "500", "APCA_LIVE_KEY_ID": "live-key", "APCA_LIVE_SECRET_KEY": "live-secret",
+        "BROKER_CAPITAL_USD": "500", "LADDER_START_USD": "300", "APCA_LIVE_KEY_ID": "live-key", "APCA_LIVE_SECRET_KEY": "live-secret",
         "APCA_API_KEY_ID": "paper-key", "APCA_API_SECRET_KEY": "paper-secret", "APCA_LIVE_URL": f"http://127.0.0.1:{ap}"}
 
 def run_env(extra, data=None):
@@ -98,7 +98,18 @@ try:
     check("another user can't halt or flatten", httpx.post(U + "/v1/live/flatten", headers=OTHER_H).status_code == 403)
     s = httpx.post(U + "/v1/live/sync", headers=OWNER_H).json()
     check("owner sees live status synced from the broker", s["mode"] == "live" and s["equity"] == 500 and s["deployed"] == 50 and s["halted"] is None, s)
-    check("caps default from the capital (10%/order, 3% daily loss)", s["guard"]["max_order"] == 50 and s["guard"]["max_daily_loss"] == 15, s["guard"])
+    check("caps default from the capital (10%/order), the ladder caps capital and daily loss ($300 earned of $500)",
+          s["guard"]["max_order"] == 50 and s["guard"]["capital"] == 300 and s["guard"]["max_deployed"] == 300 and s["guard"]["max_daily_loss"] == 9, s["guard"])
+    lad = httpx.get(U + "/v1/ladder", headers=OWNER_H).json()
+    check("ladder: live starts at the earned amount, enforced", lad["mode"] == "live" and lad["allowed"] == 300 and lad["enforced"] and lad["next_raise_max"] == 500, lad)
+    check("another user can't see the ladder", httpx.get(U + "/v1/ladder", headers=OTHER_H).status_code == 403)
+    r = httpx.post(U + "/v1/ladder/raise", headers=OWNER_H, json={"to": 500})
+    check("ladder: a raise on day 0 is refused with the reasons", r.status_code == 409 and "Days on this rung" in r.text and "Broker fills" in r.text, (r.status_code, r.text[:200]))
+    lad = httpx.post(U + "/v1/ladder/settings", headers=OWNER_H, json={"monthly_contribution": 1000, "target": 1000000, "deposit": 50}).json()
+    sc = {x["label"]: x for x in lad["scenarios"]}
+    check("ladder: projection uses real paces, contributions and deposits", lad["monthly_contribution"] == 1000 and lad["net_deposits"] == 50
+          and sc["Backtest pace (2022–26)"]["months_no_contrib"] is None and 200 < sc["Strong: 10% a year"]["months"] < 400, lad["scenarios"])
+    check("ladder is persisted", json.load(open(os.path.join(data, "ladder.json")))["monthly_contribution"] == 1000)
     check("only the live key was used", broker["calls"] and all(c["key"] == "live-key" for c in broker["calls"]), {c["key"] for c in broker["calls"]})
 
     broker["equity"] = 480.0  # down $20 today, limit $15

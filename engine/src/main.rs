@@ -6,6 +6,7 @@ mod brains;
 mod broker;
 mod config;
 mod indicators;
+mod ladder;
 mod ledger;
 mod market;
 mod pm;
@@ -60,6 +61,7 @@ async fn main() {
     let accounts: HashMap<String, ledger::Account> = load_json(&format!("{}/state.json", cfg.data_dir));
     let mut world = state::World::new(tx, accounts, audit, anchors, cfg.mirror_user.clone());
     world.live = load_json(&format!("{}/live.json", cfg.data_dir));
+    world.ladder = broker::init_ladder(&cfg, load_json::<Option<ladder::Ladder>>(&format!("{}/ladder.json", cfg.data_dir)), now());
     let app: S = Arc::new(App {
         w: Mutex::new(world),
         http: reqwest::Client::builder().timeout(Duration::from_secs(20)).build().unwrap(),

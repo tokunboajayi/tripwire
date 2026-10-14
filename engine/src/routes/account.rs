@@ -293,9 +293,10 @@ async fn live_owner(app: &S, h: &HeaderMap) -> Result<String, crate::ApiErr> {
 /// Broker status: mode, dollar caps, broker equity/positions, halt reason, recent fills with slippage vs the model.
 pub async fn live_status(State(app): State<S>, h: HeaderMap) -> R {
     live_owner(&app, &h).await?;
+    let guard = crate::broker::effective_guard(&app);
     let w = app.w.lock().unwrap();
     let l = &w.live;
-    ok(json!({"mode": app.cfg.broker, "keys": crate::broker::keys_set(app.cfg.broker), "guard": app.cfg.guard, "halted": l.halted,
+    ok(json!({"mode": app.cfg.broker, "keys": crate::broker::keys_set(app.cfg.broker), "guard": guard, "halted": l.halted,
         "equity": l.equity, "cash": l.cash, "day_start_equity": l.day_start_equity, "day_pnl": l.equity.zip(l.day_start_equity).map(|(e, s)| e - s),
         "deployed": l.deployed, "orders_today": l.orders_today, "positions": l.positions, "fills": l.fills.iter().rev().collect::<Vec<_>>(),
         "last_sync": l.last_sync, "sync_error": l.sync_error, "drift": l.drift, "kill_switch": w.kill}))
@@ -355,4 +356,71 @@ pub async fn pm_settle(State(app): State<S>, h: HeaderMap, Path(id): Path<String
     pm_owner(&app, &h).await?;
     if !crate::pm::close(&app, &id, q.venue, "settled by owner") { return Err(err(StatusCode::NOT_FOUND, "position")) }
     ok(crate::pm::status(&app))
+}
+
+/// Growth Ladder: earned capital, gates, raise history and a projection from measured results.
+pub async fn ladder_status(State(app): State<S>, h: HeaderMap) -> R {
+    live_owner(&app, &h).await?;
+    ok(ladder_json(&app))
+}
+
+fn ladder_json(app: &S) -> Value {
+    use crate::ladder::{gates, measured_annual, months_to, BACKTEST_ANNUAL, MAX_RAISE};
+    let w = app.w.lock().unwrap();
+    let Some(l) = w.ladder.as_ref() else { return json!({"mode": "off"}) };
+    let t = now();
+    let eq = w.live.equity;
+    let gs = gates(l, eq, !w.live.drift.is_empty(), t);
+    let eligible = gs.iter().all(|g| g.ok);
+    let start = eq.unwrap_or(l.allowed);
+    let measured = measured_annual(l, eq, t);
+    let mut scen = vec![];
+    if let Some(m) = measured { scen.push(("Your measured pace", m)); }
+    scen.push(("Backtest pace (2022–26)", BACKTEST_ANNUAL));
+    scen.push(("Strong: 10% a year", 0.10));
+    let scenarios: Vec<Value> = scen.iter().map(|(label, a)| json!({"label": label, "annual": a,
+        "months": months_to(start, l.monthly_contribution, *a, l.target), "months_no_contrib": months_to(start, 0., *a, l.target)})).collect();
+    json!({"mode": l.mode, "allowed": l.allowed, "capital_ceiling": app.cfg.guard.capital, "enforced": app.cfg.broker == crate::broker::Mode::Live,
+        "next_raise_max": (l.allowed * MAX_RAISE).min(app.cfg.guard.capital), "eligible": eligible, "gates": gs,
+        "rung_start": l.rung_start, "equity": eq, "rung_return": l.rung_return(eq), "max_drawdown": l.max_drawdown, "fills": l.fills,
+        "median_slip_bps": l.median_slip(), "raises": l.raises, "net_deposits": l.net_deposits,
+        "monthly_contribution": l.monthly_contribution, "target": l.target, "measured_annual": measured, "projection_start": start, "scenarios": scenarios})
+}
+
+#[derive(Deserialize)]
+pub struct RaiseIn { to: f64 }
+
+pub async fn ladder_raise(State(app): State<S>, h: HeaderMap, Json(b): Json<RaiseIn>) -> R {
+    live_owner(&app, &h).await?;
+    {
+        let mut w = app.w.lock().unwrap();
+        let (eq, drift) = (w.live.equity, !w.live.drift.is_empty());
+        let cap = app.cfg.guard.capital;
+        let l = w.ladder.as_mut().ok_or(err(StatusCode::NOT_FOUND, "no ladder"))?;
+        let from = l.allowed;
+        let to = crate::ladder::raise(l, b.to, cap, eq, drift, now()).map_err(|e| err(StatusCode::CONFLICT, &e))?;
+        let u = w.mirror_user.clone();
+        w.emit(u.as_deref(), "mirror", format!("Growth Ladder: capital raised from ${from:.0} to ${to:.0}, earned on the record. A new rung starts now."),
+            json!({"ok": true, "code": "LADDER_RAISE", "from": from, "to": to}));
+        crate::broker::save_ladder(&app.cfg.data_dir, &w.ladder);
+    }
+    ok(ladder_json(&app))
+}
+
+#[derive(Deserialize)]
+pub struct LadderSettings { monthly_contribution: Option<f64>, target: Option<f64>, deposit: Option<f64> }
+
+/// Monthly contribution and target for the projection; `deposit` records money you added (or withdrew, negative)
+/// so it is never counted as trading profit.
+pub async fn ladder_settings(State(app): State<S>, h: HeaderMap, Json(b): Json<LadderSettings>) -> R {
+    live_owner(&app, &h).await?;
+    {
+        let mut w = app.w.lock().unwrap();
+        let l = w.ladder.as_mut().ok_or(err(StatusCode::NOT_FOUND, "no ladder"))?;
+        if let Some(m) = b.monthly_contribution { l.monthly_contribution = m.clamp(0., 1e7); }
+        if let Some(t) = b.target { l.target = t.clamp(1., 1e12); }
+        if let Some(d) = b.deposit { if d.is_finite() { l.deposit(d.clamp(-1e9, 1e9)); } }
+        crate::broker::save_ladder(&app.cfg.data_dir, &w.ladder);
+    }
+    ok(ladder_json(&app))
 }

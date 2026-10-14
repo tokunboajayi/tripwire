@@ -41,6 +41,7 @@ pub struct World {
     pub mirror_user: Option<String>,
     pub mirror_queue: Vec<crate::broker::Order>,
     pub live: crate::broker::Live,
+    pub ladder: Option<crate::ladder::Ladder>,
     pub audit: Vec<Audit>,
     pub anchors: Vec<Anchor>,
 }
@@ -48,7 +49,7 @@ pub struct World {
 impl World {
     pub fn new(tx: broadcast::Sender<Ev>, accounts: HashMap<String, Account>, audit: Vec<Audit>, anchors: Vec<Anchor>, mirror_user: Option<String>) -> Self {
         World { markets: BTreeMap::new(), accounts, replays: HashMap::new(), kill: false, events: VecDeque::new(), next_id: 0, tx,
-            mirror_user, mirror_queue: vec![], live: Default::default(), audit, anchors }
+            mirror_user, mirror_queue: vec![], live: Default::default(), ladder: None, audit, anchors }
     }
 
     /// Record an event: audit chain (if audited), account/global ring buffer, SSE broadcast.

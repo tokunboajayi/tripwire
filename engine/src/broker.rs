@@ -34,6 +34,38 @@ impl Guard {
     }
 }
 
+/// Ladder for this run: kept if it was built for the same mode, otherwise a fresh one. Live starts at LADDER_START_USD
+/// (default $200, never above the capital); paper is not capped, it only measures.
+pub fn init_ladder(cfg: &crate::config::Cfg, saved: Option<crate::ladder::Ladder>, now: i64) -> Option<crate::ladder::Ladder> {
+    if cfg.broker == Mode::Off { return None }
+    let mode = if cfg.broker == Mode::Live { "live" } else { "paper" };
+    if let Some(l) = saved.filter(|l| l.mode == mode) { return Some(l) }
+    let start = if cfg.broker == Mode::Live {
+        env_or("LADDER_START_USD", "200").parse::<f64>().ok().filter(|v| *v > 0.).unwrap_or(200.).min(cfg.guard.capital)
+    } else { cfg.guard.capital };
+    let mut l = crate::ladder::Ladder::new(start, now);
+    l.mode = mode.into();
+    Some(l)
+}
+
+/// The guard actually applied: in live mode the ladder's earned amount caps capital, deployment and order size.
+pub fn effective_guard(app: &S) -> Guard {
+    let mut g = app.cfg.guard;
+    if app.cfg.broker == Mode::Live {
+        if let Some(allowed) = app.w.lock().unwrap().ladder.as_ref().map(|l| l.allowed) {
+            g.capital = g.capital.min(allowed);
+            g.max_deployed = g.max_deployed.min(allowed);
+            g.max_order = g.max_order.min(allowed);
+            g.max_daily_loss = g.max_daily_loss.min(allowed * 0.03).max(1.);
+        }
+    }
+    g
+}
+
+pub fn save_ladder(dir: &str, l: &Option<crate::ladder::Ladder>) {
+    if let Ok(s) = serde_json::to_string(l) { let _ = std::fs::write(format!("{dir}/ladder.json"), s); }
+}
+
 /// Alpaca's crypto minimum is $1; below $2 a fee rounding can reject the order.
 pub const MIN_ORDER_USD: f64 = 2.;
 
@@ -152,12 +184,13 @@ fn emit(app: &S, msg: String, data: Value) {
 pub async fn run(app: &S, orders: Vec<Order>) {
     let mode = app.cfg.broker;
     if mode == Mode::Off { return }
+    let guard = effective_guard(app);
     for o in orders {
         let notional = if o.side == "buy" {
-            let want = o.scaled(app.cfg.guard.capital);
+            let want = o.scaled(guard.capital);
             let checked = {
                 let mut w = app.w.lock().unwrap();
-                let r = check_buy(&app.cfg.guard, &w.live, want);
+                let r = check_buy(&guard, &w.live, want);
                 if let Ok(n) = r { w.live.orders_today += 1; w.live.deployed += n; } // reserve now; the next sync corrects it
                 r
             };
@@ -186,8 +219,10 @@ pub async fn run(app: &S, orders: Vec<Order>) {
                 let at = fill_price.map_or(String::new(), |f| format!(" at ${f:.2} (model ${:.2}, slippage {:+.0} bps)", o.ref_price, slip.unwrap_or(0.)));
                 emit(app, format!("{}: {what}{at}. Order {status}.", label(mode)),
                     json!({"ok": true, "symbol": o.sym, "side": o.side, "notional": notional, "fill_price": fill_price, "slip_bps": slip, "mode": mode}));
-                app.w.lock().unwrap().live.push_fill(Fill { ts: now(), symbol: o.sym.clone(), side: o.side.clone(), notional,
+                let mut w = app.w.lock().unwrap();
+                w.live.push_fill(Fill { ts: now(), symbol: o.sym.clone(), side: o.side.clone(), notional,
                     ref_price: o.ref_price, fill_price, slip_bps: slip, status, id });
+                if let Some(l) = w.ladder.as_mut() { l.on_fill(slip); }
             }
             Err(e) if o.side == "sell" && e.contains("404") => {
                 emit(app, format!("{}: no {} position to sell (already flat).", label(mode), o.sym), json!({"ok": true, "symbol": o.sym, "side": "sell", "mode": mode}));
@@ -246,9 +281,20 @@ pub async fn sync(app: &S) {
     let new_drift = drift.iter().any(|d| !w.live.drift.contains(d));
     w.live.drift = drift.clone();
 
-    let breach = w.live.halted.is_none() && w.live.day_loss() >= app.cfg.guard.max_daily_loss;
+    let daily_cap = {
+        let g = app.cfg.guard;
+        if app.cfg.broker == Mode::Live { w.ladder.as_ref().map_or(g.max_daily_loss, |l| g.max_daily_loss.min(l.allowed * 0.03).max(1.)) } else { g.max_daily_loss }
+    };
+    let breach = w.live.halted.is_none() && w.live.day_loss() >= daily_cap;
     if breach { w.live.halted = Some("LIVE_DAILY_LOSS".into()); }
-    let (loss, cap, mode) = (w.live.day_loss(), app.cfg.guard.max_daily_loss, app.cfg.broker);
+    let eq = w.live.equity;
+    let mut ladder_stop = false;
+    if let (Some(l), Some(e)) = (w.ladder.as_mut(), eq) {
+        if breach { l.loss_halts.push_back(t); if l.loss_halts.len() > 50 { l.loss_halts.pop_front(); } }
+        ladder_stop = l.on_equity(e) && app.cfg.broker == Mode::Live;
+    }
+    if ladder_stop && w.live.halted.is_none() { w.live.halted = Some("LADDER_STOP".into()); }
+    let (loss, cap, mode) = (w.live.day_loss(), daily_cap, app.cfg.broker);
     let u = w.mirror_user.clone();
     if breach {
         w.emit(u.as_deref(), "mirror", format!("{}: halted. Down ${loss:.2} today, limit ${cap:.2}. No new buys until you resume; stops still run.", label(mode)),
@@ -257,7 +303,12 @@ pub async fn sync(app: &S) {
     if new_drift && !drift.is_empty() {
         w.emit(u.as_deref(), "mirror", format!("{}: ledger and broker disagree: {}.", label(mode), drift.join("; ")), json!({"ok": false, "code": "LIVE_DRIFT", "mode": mode}));
     }
+    if ladder_stop {
+        w.emit(u.as_deref(), "mirror", "Growth Ladder stop: down 10% from the peak on this rung. Buys halted. Review before resuming; the roadmap says go back to paper.".into(),
+            json!({"ok": false, "code": "LADDER_STOP", "mode": mode}));
+    }
     save(&app.cfg.data_dir, &w.live);
+    save_ladder(&app.cfg.data_dir, &w.ladder);
 }
 
 /// Close every broker position and cancel open orders. Also halts new buys.
