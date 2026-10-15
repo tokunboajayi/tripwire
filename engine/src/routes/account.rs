@@ -182,8 +182,10 @@ pub async fn kill_all(State(app): State<S>, h: HeaderMap) -> R {
     w.kill = !w.kill;
     let k = w.kill;
     if k && w.live.halted.is_none() { w.live.halted = Some("KILL_SWITCH".into()); }
-    if k { let mut pm = app.pm.st.lock().unwrap(); if pm.halted.is_none() { pm.halted = Some("KILL_SWITCH".into()); } } // real money stops too; resuming it is a separate, explicit step
     w.emit(None, "kill", if k { "GLOBAL KILL SWITCH ON: all new orders blocked.".into() } else { "Global kill switch off.".into() }, json!({"on": k}));
+    drop(w); // lock order: never hold the world while taking PM state
+    if k { let mut pm = app.pm.st.lock().unwrap(); if pm.halted.is_none() { pm.halted = Some("KILL_SWITCH".into()); } } // real money stops too; resuming it is a separate, explicit step
+    if k { crate::pm::save(&app); }
     ok(json!({"kill": k}))
 }
 
@@ -344,6 +346,7 @@ pub async fn pm_action(State(app): State<S>, h: HeaderMap, Path(action): Path<St
         }
         _ => return Err(err(StatusCode::NOT_FOUND, "action")),
     };
+    crate::pm::save(&app);
     { let mut w = app.w.lock().unwrap(); let o = app.cfg.owner.clone().or(w.mirror_user.clone()); w.emit(o.as_deref(), "pm", msg.into(), json!({"code": action.to_uppercase()})); }
     ok(crate::pm::status(&app))
 }

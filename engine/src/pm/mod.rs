@@ -79,24 +79,48 @@ impl State {
     pub fn exposure(&self) -> f64 { self.positions.iter().map(|p| p.arb.cost + p.arb.fees).sum() }
 }
 
-pub struct Pm { pub cfg: Cfg, kalshi: kalshi::Kalshi, pub st: Mutex<State> }
+pub struct Pm { pub cfg: Cfg, kalshi: kalshi::Kalshi, pub st: Mutex<State>, path: String }
+
+/// What survives a restart.
+#[derive(Serialize, Deserialize, Default)]
+struct Saved {
+    halted: Option<String>, balances: BTreeMap<Venue, f64>, positions: Vec<Position>, settled: VecDeque<Value>,
+    realized: BTreeMap<Venue, f64>, missed: BTreeMap<Venue, f64>, locked: f64,
+}
+
+pub fn save(app: &S) {
+    if app.pm.cfg.mode == Mode::Off { return }
+    let s = {
+        let st = app.pm.st.lock().unwrap();
+        serde_json::to_string(&Saved { halted: st.halted.clone(), balances: st.balances.clone(), positions: st.positions.clone(), settled: st.settled.clone(),
+            realized: st.realized.clone(), missed: st.missed.clone(), locked: st.locked })
+    };
+    if let Ok(s) = s { let _ = std::fs::write(&app.pm.path, s); }
+}
 
 pub const LIVE_CONFIRM_PHRASE: &str = "real-money";
 
 impl Pm {
-    pub fn from_env(dev: bool) -> Result<Pm, String> {
+    pub fn from_env(dev: bool, has_owner: bool, data_dir: &str) -> Result<Pm, String> {
         let cfg = Cfg::from_env();
         if !matches!(cfg.mode_raw.as_str(), "off" | "paper" | "live") { return Err(format!("PM_MODE must be off, paper or live (got {:?})", cfg.mode_raw)) }
         let kalshi = kalshi::Kalshi::from_env()?;
         if cfg.mode == Mode::Live {
             if cfg.confirm != LIVE_CONFIRM_PHRASE { return Err(format!("PM_MODE=live trades real money. Set PM_LIVE_CONFIRM={LIVE_CONFIRM_PHRASE} to confirm")) }
             if dev { return Err("PM_MODE=live is not allowed with DEV=1".into()) }
+            if !has_owner { return Err("PM_MODE=live needs OWNER_USER: someone has to be able to see, halt and kill it".into()) }
             if !kalshi.has_keys() { return Err("PM_MODE=live needs KALSHI_KEY_ID and KALSHI_PRIVATE_KEY(_PATH)".into()) }
             if cfg.max_arb_usd > cfg.max_exposure_usd { return Err("PM_MAX_ARB_USD can't exceed PM_MAX_EXPOSURE_USD".into()) }
         }
         let mut st = State::default();
         if cfg.mode == Mode::Paper { st.balances.insert(Venue::Kalshi, cfg.paper_kalshi); st.balances.insert(Venue::Polymarket, cfg.paper_poly); }
-        Ok(Pm { cfg, kalshi, st: Mutex::new(st) })
+        // open sets, halt and books survive a restart; a file from the other mode is ignored
+        let path = format!("{data_dir}/pm_{}.json", if cfg.mode == Mode::Live { "live" } else { "paper" });
+        if let Some(s) = std::fs::read_to_string(&path).ok().and_then(|t| serde_json::from_str::<Saved>(&t).ok()) {
+            st.halted = s.halted; st.positions = s.positions; st.settled = s.settled; st.realized = s.realized; st.missed = s.missed; st.locked = s.locked;
+            if cfg.mode == Mode::Paper && !s.balances.is_empty() { st.balances = s.balances; }
+        }
+        Ok(Pm { cfg, kalshi, st: Mutex::new(st), path })
     }
 }
 
@@ -204,6 +228,7 @@ async fn cycle(app: &S, book: &Book) {
             if c.mode == Mode::Paper { book_fill(&mut st, &a, f, "paper"); paper.push(a); } else { live.push(a); }
         }
     }
+    if !paper.is_empty() { save(app); }
     for a in &paper { emit_fill(app, a, "paper"); }
     for a in live { send_live(app, a).await; }
 }
@@ -239,6 +264,7 @@ async fn send_live(app: &S, a: Arb) {
                     format!("HALTED: {} leg {} failed ({why}) after filling {}. You hold an unhedged position: review it on Kalshi.", a.label, l.market, filled.join(", "))
                 };
                 drop(st);
+                save(app);
                 let mut w = app.w.lock().unwrap();
                 let owner = app.cfg.owner.clone().or(w.mirror_user.clone());
                 w.emit(owner.as_deref(), "pm", msg, json!({"ok": false, "arb": a.id}));
@@ -247,6 +273,7 @@ async fn send_live(app: &S, a: Arb) {
         }
     }
     { let mut st = app.pm.st.lock().unwrap(); let f = app.pm.cfg.fees; book_fill(&mut st, &a, &f, "live"); }
+    save(app);
     emit_fill(app, &a, "live");
 }
 
@@ -287,6 +314,7 @@ pub fn close(app: &S, id: &str, venue: Venue, why: &str) -> bool {
         st.settled.truncate(50);
         (format!("Settled {}: ${:.0} paid on {}, profit +${:.2} realised ({why}).", p.arb.label, p.arb.contracts, venue.label(), p.arb.profit), rec)
     };
+    save(app);
     let mut w = app.w.lock().unwrap();
     let owner = app.cfg.owner.clone().or(w.mirror_user.clone());
     w.emit(owner.as_deref(), "pm", msg, data);
@@ -296,11 +324,12 @@ pub fn close(app: &S, id: &str, venue: Venue, why: &str) -> bool {
 /// Status for the owner panel, including the allocator's view across every venue that holds money.
 pub fn status(app: &S) -> Value {
     let pm = &app.pm;
+    let crypto_eq = app.w.lock().unwrap().live.equity; // lock order: world first, never while holding PM state
     let st = pm.st.lock().unwrap();
     let mut books: Vec<alloc::VenueBook> = st.balances.iter().map(|(v, b)| alloc::VenueBook {
         venue: v.label().to_lowercase(), balance: *b + st.positions.iter().filter(|p| p.arb.legs.iter().any(|l| l.venue == *v)).map(|p| p.arb.cost / p.arb.legs.len() as f64).sum::<f64>(),
         realized: st.realized.get(v).copied().unwrap_or(0.), missed: st.missed.get(v).copied().unwrap_or(0.) }).collect();
-    if let Some(eq) = app.w.lock().unwrap().live.equity {
+    if let Some(eq) = crypto_eq {
         books.push(alloc::VenueBook { venue: "crypto".into(), balance: eq, realized: 0., missed: 0. });
     }
     let plan = alloc::allocate(&books, 0.1, 0.6, 25., 0.05);

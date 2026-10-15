@@ -52,7 +52,7 @@ async fn main() {
         eprintln!("refusing to start: {e}");
         std::process::exit(1);
     }
-    let pm = match pm::Pm::from_env(cfg.dev) {
+    let pm = match pm::Pm::from_env(cfg.dev, cfg.owner.is_some(), &cfg.data_dir) {
         Ok(p) => p,
         Err(e) => { eprintln!("refusing to start: {e}"); std::process::exit(1) }
     };

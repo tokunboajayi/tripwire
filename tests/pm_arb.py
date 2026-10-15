@@ -80,8 +80,8 @@ PAIRS = {"pairs": [{"id": "fed", "label": "Fed cuts in December", "kalshi": "FED
                    {"id": "rain", "label": "Rain in NYC", "kalshi": "RAIN", "poly_yes": "PY-RAIN", "poly_no": "PN-RAIN", "verified": False}],
          "groups": [{"id": "who", "label": "Who wins", "venue": "kalshi", "markets": ["WHO-A", "WHO-B", "WHO-C"], "exhaustive": True, "verified": True}]}
 
-def start(extra):
-    data = tempfile.mkdtemp(prefix="vt-pmd-"); json.dump(PAIRS, open(f"{data}/pairs.json", "w"))
+def start(extra, data=None):
+    data = data or tempfile.mkdtemp(prefix="vt-pmd-"); json.dump(PAIRS, open(f"{data}/pairs.json", "w"))
     port = free_port()
     env = {k: v for k, v in os.environ.items() if "PROXY" not in k.upper() and k not in ("AUTH0_DOMAIN",)}
     env.update({"PORT": str(port), "DATA_DIR": data, "MARKET_URL": "http://127.0.0.1:9", "OFFLINE_FIXTURES": FIXTURES, "WEB_DIR": "/nonexistent",
@@ -100,7 +100,8 @@ def refuses(name, extra, needle):
     check(name, p.returncode != 0 and needle in p.stdout + p.stderr, (p.returncode, (p.stdout + p.stderr)[-200:]))
 
 refuses("live refuses without PM_LIVE_CONFIRM", {"PM_MODE": "live", "KALSHI_KEY_ID": "k", "KALSHI_PRIVATE_KEY_PATH": f"{TMP}/k.pem"}, "PM_LIVE_CONFIRM=real-money")
-refuses("live refuses without Kalshi keys", {"PM_MODE": "live", "PM_LIVE_CONFIRM": "real-money"}, "KALSHI_KEY_ID")
+refuses("live refuses without Kalshi keys", {"PM_MODE": "live", "PM_LIVE_CONFIRM": "real-money", "OWNER_USER": "auth0|x"}, "KALSHI_KEY_ID")
+refuses("live refuses without OWNER_USER (nobody could halt it)", {"PM_MODE": "live", "PM_LIVE_CONFIRM": "real-money", "KALSHI_KEY_ID": "k", "KALSHI_PRIVATE_KEY_PATH": f"{TMP}/k.pem"}, "OWNER_USER")
 refuses("live refuses DEV=1", {"PM_MODE": "live", "PM_LIVE_CONFIRM": "real-money", "DEV": "1", "KALSHI_KEY_ID": "k", "KALSHI_PRIVATE_KEY_PATH": f"{TMP}/k.pem"}, "DEV=1")
 refuses("a PM_MODE typo is refused", {"PM_MODE": "papr"}, "PM_MODE must be")
 
@@ -141,6 +142,14 @@ try:
     plan = httpx.get(U + "/v1/pm", headers=OWN).json()["allocation"]
     check("allocator returns weights for every venue", {w[0] for w in plan["weights"]} >= {"kalshi", "polymarket"} and abs(sum(w[1] for w in plan["weights"]) - 1) < 0.01, plan)
 
+    open_ids = sorted(p["id"] for p in httpx.get(U + "/v1/pm", headers=OWN).json()["state"]["positions"])
+    httpx.post(U + "/v1/pm/halt", headers=OWN)
+    proc.terminate(); proc.communicate(timeout=10)
+    proc, U, _ = start({"PM_MODE": "paper", "DEV": "1", "OWNER_USER": "dev|AJ", "PM_COOLDOWN_S": "1", "PM_MAX_EXPOSURE_USD": "120"}, data)
+    wait_for(lambda: httpx.get(U + "/v1/health").status_code == 200)
+    st = httpx.get(U + "/v1/pm", headers=OWN).json()["state"]
+    check("restart keeps open sets, halt and settled history", sorted(p["id"] for p in st["positions"]) == open_ids and st["halted"] == "OWNER_HALT" and st["settled"], (open_ids, st["halted"]))
+    httpx.post(U + "/v1/pm/resume", headers=OWN)
     httpx.post(U + "/v1/pm/halt", headers=OWN)
     n = len(httpx.get(U + "/v1/pm", headers=OWN).json()["state"]["positions"]); time.sleep(2)
     check("halt stops new sets", len(httpx.get(U + "/v1/pm", headers=OWN).json()["state"]["positions"]) == n)

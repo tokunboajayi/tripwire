@@ -40,12 +40,14 @@ async fn trade_once(app: &S) {
         tick(&mut w, now());
         (serde_json::to_string(&w.accounts).ok(), serde_json::to_string(&(&w.audit, &w.anchors)).ok(), std::mem::take(&mut w.mirror_queue))
     };
+    let mirror_empty = mirror.is_empty();
     let dir = &app.cfg.data_dir;
     let _ = std::fs::create_dir_all(dir);
     if let Some(a) = audit { let _ = std::fs::write(format!("{dir}/audit.json"), a); }
     if let Some(s) = accounts { let _ = std::fs::write(format!("{dir}/state.json"), s); }
+    broker::sync(app).await; // fresh equity, cash and halts before any buy is checked
     broker::run(app, mirror).await;
-    broker::sync(app).await;
+    if !mirror_empty { broker::sync(app).await; }
 }
 
 /// One live tick: regimes, exits, entries, risk gate, marks, daily-loss guard. Pure over `World` + clock.
