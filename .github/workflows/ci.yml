@@ -48,6 +48,10 @@ jobs:
       - run: python tests/e2e.py .
       - name: live price stream + ElevenLabs voice (fake upstreams)
         run: python tests/live_feed.py engine/target/release/vantrel-engine
+      - name: real-money broker mode against a fake Alpaca (guards, halts, live keys only)
+        run: python tests/live_broker.py engine/target/release/vantrel-engine
+      - name: prediction-market arbitrage against fake Kalshi + Polymarket (paper + live guards, signed orders)
+        run: python tests/pm_arb.py engine/target/release/vantrel-engine
       - name: sign-in on a production-configured engine (no DEV, no Auth0)
         run: python tests/public_signin.py engine/target/release/vantrel-engine
       - name: real-browser user journey on a production-configured engine

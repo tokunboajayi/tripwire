@@ -1,0 +1,9 @@
+{
+  "_readme": "Copy to $DATA_DIR/pairs.json. Only entries with verified:true trade: set it after you have read BOTH venues' resolution rules and they settle on exactly the same thing. Tickers/token ids below are placeholders.",
+  "pairs": [
+    { "id": "fed-dec", "label": "Fed cuts rates in December", "kalshi": "KXFEDDECISION-XXXX-C25", "poly_yes": "<polymarket YES token id>", "poly_no": "<polymarket NO token id>", "verified": false }
+  ],
+  "groups": [
+    { "id": "cpi-oct", "label": "October CPI range", "venue": "kalshi", "markets": ["KXCPI-XXXX-T2.9", "KXCPI-XXXX-T3.0", "KXCPI-XXXX-T3.1"], "exhaustive": false, "verified": false }
+  ]
+}

@@ -6,7 +6,7 @@ use crate::ledger::{close_pos, Position, FEE, SLIP};
 use crate::regime::{accept_ai, regime};
 use crate::risk::{gate, GateIn, Status};
 use crate::state::World;
-use crate::{executor, market, now, S};
+use crate::{broker, market, now, S};
 use serde_json::{json, Value};
 use std::time::Duration;
 
@@ -22,7 +22,7 @@ const TRADE_EVERY_S: i64 = 60;
 
 pub fn spawn(app: S) {
     tokio::spawn(async move {
-        let mut last_trade = i64::MIN;
+        let mut last_trade = 0i64; // not i64::MIN: `now() - i64::MIN` overflows (wraps in release, so the tick never fired)
         loop {
             market::refresh(&app).await;
             if now() - last_trade >= TRADE_EVERY_S {
@@ -40,11 +40,14 @@ async fn trade_once(app: &S) {
         tick(&mut w, now());
         (serde_json::to_string(&w.accounts).ok(), serde_json::to_string(&(&w.audit, &w.anchors)).ok(), std::mem::take(&mut w.mirror_queue))
     };
+    let mirror_empty = mirror.is_empty();
     let dir = &app.cfg.data_dir;
     let _ = std::fs::create_dir_all(dir);
     if let Some(a) = audit { let _ = std::fs::write(format!("{dir}/audit.json"), a); }
     if let Some(s) = accounts { let _ = std::fs::write(format!("{dir}/state.json"), s); }
-    for (sym, side, qty) in mirror { executor::mirror_order(app, &sym, &side, qty).await; }
+    broker::sync(app).await; // fresh equity, cash and halts before any buy is checked
+    broker::run(app, mirror).await;
+    if !mirror_empty { broker::sync(app).await; }
 }
 
 /// One live tick: regimes, exits, entries, risk gate, marks, daily-loss guard. Pure over `World` + clock.
@@ -102,7 +105,7 @@ pub fn tick(w: &mut World, now: i64) {
                 if let Some(why) = exit_check(p, price, price, &r, (now - p.opened) as f64 / 86400.) {
                     if !kill && a.status != Status::Killed {
                         let q = p.qty;
-                        if w.mirror_user.as_deref() == Some(uid.as_str()) { w.mirror_queue.push((sym.clone(), "sell".into(), q)); }
+                        if w.mirror_user.as_deref() == Some(uid.as_str()) { w.mirror_queue.push(broker::Order::new(&sym, "sell", q * price, a.start_cash, price)); }
                         let (msg, data) = close_pos(&sym, sl, price * (1. - SLIP), why, now, &mut a.trades);
                         out.push((Some(uid.clone()), "order", msg, data));
                     }
@@ -140,7 +143,7 @@ pub fn tick(w: &mut World, now: i64) {
                     let cost = q * fill * (1. + FEE);
                     sl.cash -= cost;
                     a.order_times.push_back(now);
-                    if w.mirror_user.as_deref() == Some(uid.as_str()) { w.mirror_queue.push((sym.clone(), "buy".into(), q)); }
+                    if w.mirror_user.as_deref() == Some(uid.as_str()) { w.mirror_queue.push(broker::Order::new(&sym, "buy", q * fill, a.start_cash, fill)); }
                     let stop = fill - k * r.atr;
                     sl.pos = Some(Position { qty: q, entry: fill, cost, brain, regime: m.fin, stop, hi: fill, opened: now, thesis: None });
                     out.push((Some(uid.clone()), "order",

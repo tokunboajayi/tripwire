@@ -3,6 +3,8 @@ pub fn env_or(k: &str, d: &str) -> String { std::env::var(k).ok().filter(|v| !v.
 fn env_opt(k: &str) -> Option<String> { std::env::var(k).ok().filter(|v| !v.is_empty()) }
 
 pub const DEFAULT_INTERNAL_TOKEN: &str = "change-me";
+/// What LIVE_CONFIRM must say before BROKER=live starts.
+pub const LIVE_CONFIRM_PHRASE: &str = "real-money";
 
 pub struct Cfg {
     pub symbols: Vec<String>,
@@ -27,11 +29,19 @@ pub struct Cfg {
     pub price_every_s: u64,
     /// ElevenLabs API base (override only for tests).
     pub elevenlabs_url: String,
+    /// BROKER=off|paper|live. Default: paper when MIRROR_USER is set, else off. Live needs LIVE_CONFIRM (see check()).
+    pub broker: crate::broker::Mode,
+    /// Dollar caps for the broker (BROKER_CAPITAL_USD, LIVE_MAX_*).
+    pub guard: crate::broker::Guard,
+    /// Raw BROKER value, kept so check() can reject a typo instead of silently falling back.
+    broker_raw: String,
+    live_confirm: String,
 }
 
 impl Cfg {
     pub fn from_env() -> Cfg {
         let _ = dotenvy::from_filename("../.env").or_else(|_| dotenvy::dotenv());
+        let broker_raw = env_or("BROKER", if env_opt("MIRROR_USER").is_some() { "paper" } else { "off" }).to_lowercase();
         Cfg {
             symbols: env_or("SYMBOLS", "BTC,ETH,SOL").split(',').map(|s| s.trim().split('/').next().unwrap().to_uppercase()).collect(),
             dev: env_or("DEV", "0") == "1",
@@ -49,6 +59,10 @@ impl Cfg {
             mirror_user: env_opt("MIRROR_USER"),
             price_every_s: env_or("PRICE_EVERY_S", "10").parse::<u64>().unwrap_or(10).clamp(2, 60),
             elevenlabs_url: env_or("ELEVENLABS_URL", "https://api.elevenlabs.io"),
+            broker: crate::broker::Mode::parse(&broker_raw).unwrap_or(crate::broker::Mode::Off),
+            guard: crate::broker::Guard::from_env(env_or("BROKER_CAPITAL_USD", "").parse::<f64>().ok().filter(|c| *c > 0.).unwrap_or(10_000.)),
+            broker_raw,
+            live_confirm: env_or("LIVE_CONFIRM", ""),
         }
     }
 
@@ -56,6 +70,20 @@ impl Cfg {
     pub fn check(&self) -> Result<(), String> {
         if !self.dev && (self.internal_token == DEFAULT_INTERNAL_TOKEN || self.internal_token.len() < 16) {
             return Err("INTERNAL_TOKEN must be set to a random value (16+ chars) when DEV != 1".into());
+        }
+        use crate::broker::{keys_set, Mode};
+        if Mode::parse(&self.broker_raw).is_none() { return Err(format!("BROKER must be off, paper or live (got {:?})", self.broker_raw)) }
+        if self.broker != Mode::Off && self.mirror_user.is_none() { return Err("BROKER needs MIRROR_USER: the one account whose trades go to the broker".into()) }
+        if self.broker == Mode::Live {
+            // Real money: every one of these must be deliberate.
+            if self.live_confirm != LIVE_CONFIRM_PHRASE { return Err(format!("BROKER=live trades real money. Set LIVE_CONFIRM={LIVE_CONFIRM_PHRASE} to confirm")) }
+            if self.dev { return Err("BROKER=live is not allowed with DEV=1 (anyone could sign in as anyone)".into()) }
+            if self.mirror_user.as_deref().is_some_and(|u| u.starts_with("dev|")) { return Err("MIRROR_USER can't be a dev| account in live mode".into()) }
+            if env_opt("BROKER_CAPITAL_USD").is_none() { return Err("BROKER=live needs BROKER_CAPITAL_USD: the dollars you allow it to trade".into()) }
+            if !keys_set(Mode::Live) { return Err("BROKER=live needs APCA_LIVE_KEY_ID and APCA_LIVE_SECRET_KEY (separate from the paper keys)".into()) }
+            if self.guard.max_order > self.guard.capital || self.guard.max_deployed > self.guard.capital {
+                return Err("LIVE_MAX_ORDER_USD and LIVE_MAX_DEPLOYED_USD can't exceed BROKER_CAPITAL_USD".into())
+            }
         }
         Ok(())
     }

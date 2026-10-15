@@ -137,7 +137,7 @@ pub async fn action(State(app): State<S>, h: HeaderMap, Path(action): Path<Strin
     let px = w.prices();
     let a = w.accounts.get_mut(&u).ok_or(err(StatusCode::NOT_FOUND, "no account"))?;
     let mut evs: Vec<(&str, String, Value)> = vec![];
-    let mut mirror: Vec<(String, f64)> = vec![];
+    let mut mirror: Vec<(String, f64, f64)> = vec![];
     match action.as_str() {
         "pause" => { a.status = Status::Paused; evs.push(("status", "Paused. Open positions keep their stops.".into(), json!({}))) }
         "resume" => { a.status = Status::Active; evs.push(("status", "Resumed.".into(), json!({}))) }
@@ -146,8 +146,8 @@ pub async fn action(State(app): State<S>, h: HeaderMap, Path(action): Path<Strin
             let t = now();
             for (s, sl) in a.sleeves.iter_mut() {
                 let Some(q) = sl.pos.as_ref().map(|p| p.qty) else { continue };
-                mirror.push((s.clone(), q));
                 let price = px.get(s).copied().unwrap_or(sl.pos.as_ref().unwrap().entry);
+                mirror.push((s.clone(), q * price, price));
                 let (m, d) = close_pos(s, sl, price * (1. - SLIP), "flatten", t, &mut a.trades);
                 evs.push(("order", m, d));
             }
@@ -168,7 +168,7 @@ pub async fn action(State(app): State<S>, h: HeaderMap, Path(action): Path<Strin
         }
         _ => return Err(err(StatusCode::NOT_FOUND, "action")),
     }
-    for (s, q) in mirror { w.queue_mirror(&u, &s, "sell", q); }
+    for (s, n, p) in mirror { w.queue_mirror(&u, &s, "sell", n, p); }
     for (k, m, d) in evs { w.emit(Some(&u), k, m, d); }
     ok(json!({"ok": true}))
 }
@@ -181,7 +181,11 @@ pub async fn kill_all(State(app): State<S>, h: HeaderMap) -> R {
     let mut w = app.w.lock().unwrap();
     w.kill = !w.kill;
     let k = w.kill;
+    if k && w.live.halted.is_none() { w.live.halted = Some("KILL_SWITCH".into()); }
     w.emit(None, "kill", if k { "GLOBAL KILL SWITCH ON: all new orders blocked.".into() } else { "Global kill switch off.".into() }, json!({"on": k}));
+    drop(w); // lock order: never hold the world while taking PM state
+    if k { let mut pm = app.pm.st.lock().unwrap(); if pm.halted.is_none() { pm.halted = Some("KILL_SWITCH".into()); } } // real money stops too; resuming it is a separate, explicit step
+    if k { crate::pm::save(&app); }
     ok(json!({"kill": k}))
 }
 
@@ -278,4 +282,148 @@ fn speech_text(t: &str) -> String {
         Some(i) if i > CAP / 3 => head[..=i].to_string(),
         _ => head,
     }
+}
+
+/// Broker controls belong to the account being traded (MIRROR_USER) or the OWNER_USER; nobody else sees them.
+async fn live_owner(app: &S, h: &HeaderMap) -> Result<String, crate::ApiErr> {
+    let u = writer(app, h).await?;
+    if app.cfg.broker == crate::broker::Mode::Off { return Err(err(StatusCode::NOT_FOUND, "broker off")) }
+    if app.cfg.mirror_user.as_deref() == Some(u.as_str()) || app.cfg.owner.as_deref() == Some(u.as_str()) { Ok(u) }
+    else { Err(err(StatusCode::FORBIDDEN, "owner only")) }
+}
+
+/// Broker status: mode, dollar caps, broker equity/positions, halt reason, recent fills with slippage vs the model.
+pub async fn live_status(State(app): State<S>, h: HeaderMap) -> R {
+    live_owner(&app, &h).await?;
+    let guard = crate::broker::effective_guard(&app);
+    let w = app.w.lock().unwrap();
+    let l = &w.live;
+    ok(json!({"mode": app.cfg.broker, "keys": crate::broker::keys_set(app.cfg.broker), "guard": guard, "halted": l.halted,
+        "equity": l.equity, "cash": l.cash, "day_start_equity": l.day_start_equity, "day_pnl": l.equity.zip(l.day_start_equity).map(|(e, s)| e - s),
+        "deployed": l.deployed, "orders_today": l.orders_today, "positions": l.positions, "fills": l.fills.iter().rev().collect::<Vec<_>>(),
+        "last_sync": l.last_sync, "sync_error": l.sync_error, "drift": l.drift, "kill_switch": w.kill}))
+}
+
+/// halt · resume · flatten · sync
+pub async fn live_action(State(app): State<S>, h: HeaderMap, Path(action): Path<String>) -> R {
+    live_owner(&app, &h).await?;
+    match action.as_str() {
+        "halt" | "resume" => {
+            let mut w = app.w.lock().unwrap();
+            if action == "resume" && w.kill { return Err(err(StatusCode::CONFLICT, "global kill switch is on")) }
+            w.live.halted = if action == "halt" { Some("OWNER_HALT".into()) } else { None };
+            let u = w.mirror_user.clone();
+            let msg = if action == "halt" { "Broker halted by you: no new buys. Stops and exits still run." } else { "Broker resumed: buys allowed again, inside the dollar caps." };
+            w.emit(u.as_deref(), "mirror", msg.into(), json!({"ok": true, "code": action.to_uppercase()}));
+            crate::broker::save(&app.cfg.data_dir, &w.live);
+        }
+        "flatten" => crate::broker::flatten(&app).await.map_err(|e| err(StatusCode::BAD_GATEWAY, &e))?,
+        "sync" => {}
+        _ => return Err(err(StatusCode::NOT_FOUND, "action")),
+    }
+    crate::broker::sync(&app).await;
+    live_status(State(app), h).await
+}
+
+/// Prediction-market controls: OWNER_USER or MIRROR_USER only.
+async fn pm_owner(app: &S, h: &HeaderMap) -> Result<String, crate::ApiErr> {
+    let u = writer(app, h).await?;
+    if app.pm.cfg.mode == crate::pm::Mode::Off { return Err(err(StatusCode::NOT_FOUND, "prediction markets off")) }
+    if app.cfg.mirror_user.as_deref() == Some(u.as_str()) || app.cfg.owner.as_deref() == Some(u.as_str()) { Ok(u) }
+    else { Err(err(StatusCode::FORBIDDEN, "owner only")) }
+}
+
+pub async fn pm_status(State(app): State<S>, h: HeaderMap) -> R { pm_owner(&app, &h).await?; ok(crate::pm::status(&app)) }
+
+/// halt · resume
+pub async fn pm_action(State(app): State<S>, h: HeaderMap, Path(action): Path<String>) -> R {
+    pm_owner(&app, &h).await?;
+    let msg = match action.as_str() {
+        "halt" => { app.pm.st.lock().unwrap().halted = Some("OWNER_HALT".into()); "Arbitrage halted by you: no new sets. Open sets stay until they settle." }
+        "resume" => {
+            if app.w.lock().unwrap().kill { return Err(err(StatusCode::CONFLICT, "global kill switch is on")) }
+            app.pm.st.lock().unwrap().halted = None; "Arbitrage resumed."
+        }
+        _ => return Err(err(StatusCode::NOT_FOUND, "action")),
+    };
+    crate::pm::save(&app);
+    { let mut w = app.w.lock().unwrap(); let o = app.cfg.owner.clone().or(w.mirror_user.clone()); w.emit(o.as_deref(), "pm", msg.into(), json!({"code": action.to_uppercase()})); }
+    ok(crate::pm::status(&app))
+}
+
+#[derive(Deserialize)]
+pub struct SettleQ { venue: crate::pm::arb::Venue }
+
+/// Manual settlement (Polymarket-only sets, or a venue that settled without the engine seeing it).
+pub async fn pm_settle(State(app): State<S>, h: HeaderMap, Path(id): Path<String>, Query(q): Query<SettleQ>) -> R {
+    pm_owner(&app, &h).await?;
+    if !crate::pm::close(&app, &id, q.venue, "settled by owner") { return Err(err(StatusCode::NOT_FOUND, "position")) }
+    ok(crate::pm::status(&app))
+}
+
+/// Growth Ladder: earned capital, gates, raise history and a projection from measured results.
+pub async fn ladder_status(State(app): State<S>, h: HeaderMap) -> R {
+    live_owner(&app, &h).await?;
+    ok(ladder_json(&app))
+}
+
+fn ladder_json(app: &S) -> Value {
+    use crate::ladder::{gates, measured_annual, months_to, BACKTEST_ANNUAL, MAX_RAISE};
+    let w = app.w.lock().unwrap();
+    let Some(l) = w.ladder.as_ref() else { return json!({"mode": "off"}) };
+    let t = now();
+    let eq = w.live.equity;
+    let gs = gates(l, eq, !w.live.drift.is_empty(), t);
+    let eligible = gs.iter().all(|g| g.ok);
+    let start = eq.unwrap_or(l.allowed);
+    let measured = measured_annual(l, eq, t);
+    let mut scen = vec![];
+    if let Some(m) = measured { scen.push(("Your measured pace", m)); }
+    scen.push(("Backtest pace (2022–26)", BACKTEST_ANNUAL));
+    scen.push(("Strong: 10% a year", 0.10));
+    let scenarios: Vec<Value> = scen.iter().map(|(label, a)| json!({"label": label, "annual": a,
+        "months": months_to(start, l.monthly_contribution, *a, l.target), "months_no_contrib": months_to(start, 0., *a, l.target)})).collect();
+    json!({"mode": l.mode, "allowed": l.allowed, "capital_ceiling": app.cfg.guard.capital, "enforced": app.cfg.broker == crate::broker::Mode::Live,
+        "next_raise_max": (l.allowed * MAX_RAISE).min(app.cfg.guard.capital), "eligible": eligible, "gates": gs,
+        "rung_start": l.rung_start, "equity": eq, "rung_return": l.rung_return(eq), "max_drawdown": l.max_drawdown, "fills": l.fills,
+        "median_slip_bps": l.median_slip(), "raises": l.raises, "net_deposits": l.net_deposits,
+        "monthly_contribution": l.monthly_contribution, "target": l.target, "measured_annual": measured, "projection_start": start, "scenarios": scenarios})
+}
+
+#[derive(Deserialize)]
+pub struct RaiseIn { to: f64 }
+
+pub async fn ladder_raise(State(app): State<S>, h: HeaderMap, Json(b): Json<RaiseIn>) -> R {
+    live_owner(&app, &h).await?;
+    {
+        let mut w = app.w.lock().unwrap();
+        let (eq, drift) = (w.live.equity, !w.live.drift.is_empty());
+        let cap = app.cfg.guard.capital;
+        let l = w.ladder.as_mut().ok_or(err(StatusCode::NOT_FOUND, "no ladder"))?;
+        let from = l.allowed;
+        let to = crate::ladder::raise(l, b.to, cap, eq, drift, now()).map_err(|e| err(StatusCode::CONFLICT, &e))?;
+        let u = w.mirror_user.clone();
+        w.emit(u.as_deref(), "mirror", format!("Growth Ladder: capital raised from ${from:.0} to ${to:.0}, earned on the record. A new rung starts now."),
+            json!({"ok": true, "code": "LADDER_RAISE", "from": from, "to": to}));
+        crate::broker::save_ladder(&app.cfg.data_dir, &w.ladder);
+    }
+    ok(ladder_json(&app))
+}
+
+#[derive(Deserialize)]
+pub struct LadderSettings { monthly_contribution: Option<f64>, target: Option<f64>, deposit: Option<f64> }
+
+/// Monthly contribution and target for the projection; `deposit` records money you added (or withdrew, negative)
+/// so it is never counted as trading profit.
+pub async fn ladder_settings(State(app): State<S>, h: HeaderMap, Json(b): Json<LadderSettings>) -> R {
+    live_owner(&app, &h).await?;
+    {
+        let mut w = app.w.lock().unwrap();
+        let l = w.ladder.as_mut().ok_or(err(StatusCode::NOT_FOUND, "no ladder"))?;
+        if let Some(m) = b.monthly_contribution { l.monthly_contribution = m.clamp(0., 1e7); }
+        if let Some(t) = b.target { l.target = t.clamp(1., 1e12); }
+        if let Some(d) = b.deposit { if d.is_finite() { l.deposit(d.clamp(-1e9, 1e9)); } }
+        crate::broker::save_ladder(&app.cfg.data_dir, &w.ladder);
+    }
+    ok(ladder_json(&app))
 }

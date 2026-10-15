@@ -72,7 +72,7 @@ pub async fn exit(State(app): State<S>, h: HeaderMap, Json(b): Json<ExitIn>) -> 
     let q = sl.pos.as_ref().map_or(0., |p| p.qty);
     let price = px.get(&b.symbol).copied().ok_or(err(StatusCode::NOT_FOUND, "price"))?;
     let (m, d) = close_pos(&b.symbol, sl, price * (1. - SLIP), &format!("AI thesis broken: {}", b.evidence), now(), &mut a.trades);
-    w.queue_mirror(&b.account, &b.symbol, "sell", q);
+    w.queue_mirror(&b.account, &b.symbol, "sell", q * price, price);
     w.emit(Some(&b.account), "order", m, d);
     ok(json!({"ok": true}))
 }

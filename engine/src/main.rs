@@ -3,11 +3,13 @@
 mod audit;
 mod auth;
 mod brains;
+mod broker;
 mod config;
-mod executor;
 mod indicators;
+mod ladder;
 mod ledger;
 mod market;
+mod pm;
 mod regime;
 mod replay;
 mod risk;
@@ -30,6 +32,7 @@ pub struct App {
     pub w: Mutex<state::World>,
     pub http: reqwest::Client,
     pub jwks: OnceCell<jsonwebtoken::jwk::JwkSet>,
+    pub pm: pm::Pm,
 }
 pub type S = Arc<App>;
 pub type ApiErr = (StatusCode, String);
@@ -49,21 +52,39 @@ async fn main() {
         eprintln!("refusing to start: {e}");
         std::process::exit(1);
     }
+    let pm = match pm::Pm::from_env(cfg.dev, cfg.owner.is_some(), &cfg.data_dir) {
+        Ok(p) => p,
+        Err(e) => { eprintln!("refusing to start: {e}"); std::process::exit(1) }
+    };
     let (tx, _) = broadcast::channel(1024);
     let (audit, anchors): (Vec<audit::Audit>, Vec<audit::Anchor>) = load_json(&format!("{}/audit.json", cfg.data_dir));
     let accounts: HashMap<String, ledger::Account> = load_json(&format!("{}/state.json", cfg.data_dir));
-    let world = state::World::new(tx, accounts, audit, anchors, cfg.mirror_user.clone());
+    let mut world = state::World::new(tx, accounts, audit, anchors, cfg.mirror_user.clone());
+    world.live = load_json(&format!("{}/live.json", cfg.data_dir));
+    world.ladder = broker::init_ladder(&cfg, load_json::<Option<ladder::Ladder>>(&format!("{}/ladder.json", cfg.data_dir)), now());
     let app: S = Arc::new(App {
         w: Mutex::new(world),
         http: reqwest::Client::builder().timeout(Duration::from_secs(20)).build().unwrap(),
         jwks: OnceCell::new(),
+        pm,
         cfg,
     });
 
     market::load_all(&app).await;
     scheduler::spawn(app.clone());
+    pm::spawn(app.clone());
 
     let listener = tokio::net::TcpListener::bind(("0.0.0.0", app.cfg.port)).await.unwrap();
     println!("Vantrel engine on :{}{}", app.cfg.port, if app.cfg.dev { " (DEV sign-in enabled)" } else { "" });
+    match app.cfg.broker {
+        broker::Mode::Live => println!("BROKER=live: REAL MONEY. Capital ${:.0}, max ${:.0}/order, ${:.0} deployed, ${:.0} daily loss.",
+            app.cfg.guard.capital, app.cfg.guard.max_order, app.cfg.guard.max_deployed, app.cfg.guard.max_daily_loss),
+        broker::Mode::Paper => println!("BROKER=paper: owner's trades rehearsed at Alpaca paper (${:.0} capital).", app.cfg.guard.capital),
+        broker::Mode::Off => {}
+    }
+    if app.pm.cfg.mode != pm::Mode::Off {
+        println!("PM_MODE={:?}: Kalshi + Polymarket arbitrage every {}ms, min edge {:.1}%, ${:.0}/arb, ${:.0} max exposure.",
+            app.pm.cfg.mode, app.pm.cfg.every_ms, app.pm.cfg.min_edge_bps / 100., app.pm.cfg.max_arb_usd, app.pm.cfg.max_exposure_usd);
+    }
     axum::serve(listener, routes::router(app).into_make_service_with_connect_info::<std::net::SocketAddr>()).await.unwrap();
 }

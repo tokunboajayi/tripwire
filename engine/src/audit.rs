@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 pub const GENESIS: &str = "0000000000000000000000000000000000000000000000000000000000000000";
 
 /// Event kinds that go into the chain.
-pub const AUDITED: [&str; 10] = ["order", "gate_block", "ai_regime", "regime", "thesis", "limits", "auto_pause", "kill", "status", "mirror"];
+pub const AUDITED: [&str; 11] = ["order", "gate_block", "ai_regime", "regime", "thesis", "limits", "auto_pause", "kill", "status", "mirror", "pm"];
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Audit { pub seq: u64, pub ts: i64, pub kind: String, pub msg: String, pub hash: String }

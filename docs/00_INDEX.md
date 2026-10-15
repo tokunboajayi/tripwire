@@ -13,6 +13,8 @@ Hacklanta '26 · Fintech track · team of 4 · paper trading on live crypto.
 | 05 | `05_PROMPTS.md` | Copy-paste Claude Code prompts per seat | builders |
 | 06 | `06_ACCOUNTS.md` | Keys to grab | owner |
 | 07 | `07_REPO_AND_PAGES.md` | Repo, collaborators, README + landing prompts, sponsors | owner + D |
+| 08 | `08_ROADMAP.md` | **After the hackathon:** trading your own money (paper → live micro → scale), stop rules, why not HFT | owner |
+| 09 | `09_WHITEPAPER.md` | **Whitepaper:** every aspect of the system, its evidence, risks and strategy | everyone, investors |
 | — | `../backtest/` | Working Python backtest, results, charts | B |
 | — | `../demo/` | **Final demo video** (`vantrel-demo.mp4`, 98 s, narrated) + `video/` script that rebuilds it | pitcher |
 
