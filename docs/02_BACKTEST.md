@@ -47,3 +47,21 @@ python backtest/daily.py        # per-brain breakdown
 2. Add 5 more liquid coins → more trades, smoother curve.
 3. Walk-forward: re-fit nothing, just roll yearly windows and report each.
 4. Port signals to Rust and run a **parity test** (Rust signals == Python signals on same bars).
+
+## v2 + Growth Ladder (Oct 2026): `python backtest/ladder_sim.py`
+The v2 equity curves run through the same rules as `engine/src/ladder.rs`: start at $200, raises of at most 2× every 30 days once all gates pass, a halt at 10% drawdown, and the owner resumes after 7 days. Fills are estimated at v2's average rate.
+
+| Full 2022–26, $500/month deposited ($28,700 in) | End | Profit |
+|---|---|---|
+| Conservative **with ladder** | $28,768 | **+$68** (1 raise, 2 stops) |
+| Conservative, no ladder (all deposits trade) | $30,729 | +$2,029 |
+| Buy & hold, same deposits | $46,210 | +$17,510 |
+
+| OOS 2025–26, $500/month ($10,700 in) | End | Profit |
+|---|---|---|
+| Conservative with ladder | $10,663 | −$37 (3 raises, reached $1,600) |
+| Conservative, no ladder | $10,752 | +$52 |
+| Buy & hold | $10,319 | −$381 |
+
+**Finding:** the ladder is too tight for this strategy. Normal v2 drawdown is 17%, so the 10% stop keeps firing, and a rung that has hit 10% can never be raised again. Over four years almost all deposits sat in cash. Fix candidates: base the stop on the backtested drawdown (about 20% for conservative), and reset the rung's drawdown once equity makes a new high.
+Prediction-market arbitrage isn't backtested: there are no historical Kalshi/Polymarket order books here. Its evidence has to come from the Phase 1b paper run.
