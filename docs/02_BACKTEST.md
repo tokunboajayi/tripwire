@@ -63,7 +63,9 @@ The v2 equity curves run through the same rules as `engine/src/ladder.rs`: start
 | Conservative, no ladder | $10,752 | +$52 |
 | Buy & hold | $10,319 | −$381 |
 
-**Finding:** the ladder is too tight for this strategy. Normal v2 drawdown is 17%, so the 10% stop keeps firing, and a rung that has hit 10% can never be raised again. Over four years almost all deposits sat in cash. Fix candidates: base the stop on the backtested drawdown (about 20% for conservative), and reset the rung's drawdown once equity makes a new high.
+The tables above are the **original** rules (`python backtest/ladder_sim.py --old`). **Shipped rules** (25% stop, the gate clears at a new high), same $500/month: conservative gets 0 stops and 4 raises, reaches $3,029 traded, and ends at −$71. More money trades, but v2's edge is still too thin to profit from it.
+
+**Finding (original rules):** the ladder is too tight for this strategy. Normal v2 drawdown is 17%, so the 10% stop keeps firing, and a rung that has hit 10% can never be raised again. Over four years almost all deposits sat in cash. Fix candidates: base the stop on the backtested drawdown (about 20% for conservative), and reset the rung's drawdown once equity makes a new high.
 Prediction-market arbitrage isn't backtested: there are no historical Kalshi/Polymarket order books here. Its evidence has to come from the Phase 1b paper run.
 
 ## Strategy search + Trend Core (Oct 2026)

@@ -1,7 +1,7 @@
 //! The 3 brains + shield (spec §4 steps 5–6): entries, exits, sizing, and the one-line "why".
 //! Plus the Trend Core strategy: one rule, hold above the 100-day average (backtest/trend_core.py).
 use crate::indicators::Row;
-use crate::ledger::Position;
+use crate::ledger::{Position, FEE, SLIP};
 use crate::regime::{Brain, Regime};
 use crate::risk::Limits;
 
@@ -35,7 +35,7 @@ pub fn size(brain: Brain, cash: f64, px: f64, r: &Row, lim: &Limits, conf: f64) 
         Brain::Trend => cash * lim.maxpos.min(lim.vol_target / r.rv) / px,
         Brain::Mr => (cash * lim.risk / (3. * r.atr)).min(cash * lim.maxpos / px),
         Brain::Breakout => (cash * lim.risk / (2. * r.atr)).min(cash * lim.maxpos / px),
-        Brain::Core => cash * lim.maxpos / px,
+        Brain::Core => cash * lim.maxpos / (px * (1. + FEE + SLIP)), // leave room for costs: the gate checks notional × (1+fee+slip) ≤ cash
         Brain::Shield => 0.,
     };
     (q * conf.clamp(0.5, 1.0)).max(0.)
@@ -91,6 +91,9 @@ mod tests {
         assert_eq!(exit_check(&mut p, 98.9, 98.9, &r, 1.), Some("core_end"));
         assert_eq!(exit_check(&mut p, 91., 91., &r, 1.), Some("stop"));
         let lim = Limits::profile("conservative");
-        assert!((size(Brain::Core, 1000., 100., &r, &lim, 1.) - 5.).abs() < 1e-9, "half the sleeve on conservative");
+        assert!((size(Brain::Core, 1000., 100., &r, &lim, 1.) * 100. - 500. / (1. + FEE + SLIP)).abs() < 1e-9, "half the sleeve on conservative");
+        // aggressive = the whole sleeve, and the order still fits once fees and slippage are added
+        let q = size(Brain::Core, 1000., 100., &r, &Limits::profile("aggressive"), 1.);
+        assert!(q * 100. * (1. + FEE + SLIP) <= 1000. + 1e-9);
     }
 }

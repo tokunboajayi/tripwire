@@ -1,11 +1,14 @@
 """Growth Ladder overlay on the v2 equity curves (same rules as engine/src/ladder.rs).
-Start at $200 allowed; raise at most 2x per 30 days when every gate passes; a 10% drawdown on the rung halts buys.
+Start at $200 allowed; raise at most 2x per 30 days when every gate passes; a STOP drawdown halts buys, and the
+drawdown gate clears when equity makes a new high (ladder.rs since Oct 2026). `--old` replays the original 10% / no-reset rules.
 Only `allowed` dollars trade; deposits and the rest sit in cash. Fills are estimated at v2's average rate
 (98 round trips over the full period = 2 fills each), because the curves don't carry per-trade timestamps."""
 import pandas as pd, numpy as np, sys
 
 C = pd.read_csv("equity_curves_v2.csv", index_col=0, parse_dates=True)
 START, CAP, RESUME_DAYS = 200.0, 10_000.0, 7
+OLD = "--old" in sys.argv
+STOP = 0.10 if OLD else 0.25
 FILL_RATE = 2 * 98 / len(C)          # fills per day, full period average
 
 def sim(curve, monthly, ladder=True):
@@ -20,11 +23,12 @@ def sim(curve, monthly, ladder=True):
         if i <= halted_until: continue       # halted: flat, earns nothing
         traded *= 1 + r[i]; fills += FILL_RATE if r[i] != 0 else FILL_RATE / 2
         if not ladder: continue
+        if traded > peak and not OLD: dd = 0.0   # new high clears the drawdown gate
         peak = max(peak, traded); cur_dd = 1 - traded / peak; dd = max(dd, cur_dd)
-        if cur_dd >= 0.10:                   # LADDER_STOP: halt; owner resumes after RESUME_DAYS
-            stops += 1; halted_until = i + RESUME_DAYS; peak = traded   # rung's max drawdown stays >= 10%,
-            continue                                                    # so no raise is possible on this rung (as in ladder.rs)
-        gates = (i - rung_start >= 30 and i - last_raise >= 30 and fills >= 10 and dd < 0.10 and traded >= start_eq)
+        if cur_dd >= STOP:                   # LADDER_STOP: halt; owner resumes after RESUME_DAYS
+            stops += 1; halted_until = i + RESUME_DAYS; peak = traded   # with --old the rung's drawdown stays >= 10%
+            continue                                                    # forever, so no raise is possible on that rung
+        gates = (i - rung_start >= 30 and i - last_raise >= 30 and fills >= 10 and dd < STOP and traded >= start_eq)
         if gates and allowed < CAP:
             new = min(allowed * 2, CAP, traded + cash)
             if new > traded:
@@ -55,4 +59,4 @@ for per, (a, b) in {"full 2022-26": ("2022", "2026"), "OOS 2025-26": ("2025", "2
 df = pd.DataFrame(rows)
 pd.set_option("display.width", 250)
 print(df.to_string(index=False))
-df.to_csv("results_ladder.csv", index=False)
+df.to_csv("results_ladder_old.csv" if OLD else "results_ladder.csv", index=False)
