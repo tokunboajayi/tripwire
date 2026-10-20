@@ -9,7 +9,7 @@ pub struct Candle { pub t: i64, pub o: f64, pub h: f64, pub l: f64, pub c: f64, 
 /// Per-bar indicator series.
 #[derive(Clone, Default, Debug)]
 pub struct Inds {
-    pub atr: Vec<f64>, pub ema50: Vec<f64>, pub ema200: Vec<f64>, pub sma200: Vec<f64>, pub sma5: Vec<f64>,
+    pub atr: Vec<f64>, pub ema50: Vec<f64>, pub ema200: Vec<f64>, pub sma200: Vec<f64>, pub sma100: Vec<f64>, pub sma5: Vec<f64>,
     pub adx: Vec<f64>, pub rsi2: Vec<f64>, pub dch10: Vec<f64>, pub dch20: Vec<f64>, pub vol20: Vec<f64>,
     pub rv: Vec<f64>, pub atrp_rank: Vec<f64>,
 }
@@ -17,14 +17,14 @@ pub struct Inds {
 /// Indicator values for one bar.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Row {
-    pub atr: f64, pub ema50: f64, pub ema200: f64, pub sma200: f64, pub sma5: f64, pub adx: f64,
+    pub atr: f64, pub ema50: f64, pub ema200: f64, pub sma200: f64, pub sma100: f64, pub sma5: f64, pub adx: f64,
     pub rsi2: f64, pub dch10: f64, pub dch20: f64, pub vol20: f64, pub rv: f64, pub atrp_rank: f64,
 }
 
 impl Inds {
     pub fn row(&self, i: usize) -> Row {
         Row {
-            atr: self.atr[i], ema50: self.ema50[i], ema200: self.ema200[i], sma200: self.sma200[i], sma5: self.sma5[i],
+            atr: self.atr[i], ema50: self.ema50[i], ema200: self.ema200[i], sma200: self.sma200[i], sma100: self.sma100[i], sma5: self.sma5[i],
             adx: self.adx[i], rsi2: self.rsi2[i], dch10: self.dch10[i], dch20: self.dch20[i], vol20: self.vol20[i],
             rv: self.rv[i], atrp_rank: self.atrp_rank[i],
         }
@@ -114,7 +114,7 @@ pub fn compute_ann(cs: &[Candle], periods: f64) -> Inds {
     let atrp: Vec<f64> = (0..n).map(|i| atr[i] / c[i]).collect();
 
     Inds {
-        ema50: ewm(&c, 2. / 51.), ema200: ewm(&c, 2. / 201.), sma200: roll(&c, 200, 200, mean), sma5: roll(&c, 5, 5, mean),
+        ema50: ewm(&c, 2. / 51.), ema200: ewm(&c, 2. / 201.), sma200: roll(&c, 200, 200, mean), sma100: roll(&c, 100, 100, mean), sma5: roll(&c, 5, 5, mean),
         adx: ewm(&dx, 1. / 14.), rsi2, dch10: prev_max(&h, 10), dch20: prev_max(&h, 20), vol20: roll(&v, 20, 20, mean),
         rv: roll(&rets, 30, 30, std1).iter().map(|x| x * periods.sqrt()).collect(), atrp_rank: roll(&atrp, 90, 30, pct_rank), atr,
     }

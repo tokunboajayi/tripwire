@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNarration } from "../lib/narrator";
 import { Caption } from "../components/Caption";
-import { api, BRAINS, onSpeaking, pct, PROFILES, REGIMES, signedPct, signedUsd, speak, stopSpeaking, usd, type Brain, type Ev, type Live, type Profile, type Regime } from "../lib/api";
+import { api, BRAINS, onSpeaking, pct, PROFILES, REGIMES, signedPct, signedUsd, speak, stopSpeaking, usd, type Brain, type Ev, type Live, type Profile, type Regime, type Strategy } from "../lib/api";
 import { EquityChart, Lines, RegimeChart, type Candle, type Marker } from "../components/Charts";
 import { LimitsTable, RiskSlider } from "../components/RiskSlider";
+import { StrategyPicker } from "../components/StrategyPicker";
 import { WhyLog } from "../components/WhyLog";
 import { BrainBadge, Empty } from "../components/ui";
 import { Icon } from "../components/Icons";
@@ -50,6 +51,7 @@ export default function Dashboard({ acct, feed, reasoning, reload, voice, live =
     setBusy(x);
     api(`/v1/accounts/me/${x}`, "POST").then(reload).catch((e) => alert(e.message)).finally(() => setBusy(""));
   };
+  const setStrategy = (st: Strategy) => { if (st !== acct.strategy) api("/v1/accounts/me/strategy", "PATCH", { strategy: st }).then(reload).catch((e) => alert(e.message)); };
   const setProfile = (p: Profile) => { if (p !== acct.profile) api("/v1/accounts/me/profile", "PATCH", { profile: p }).then(reload).catch((e) => alert(e.message)); };
   const narr = useNarration(demo, sym, voice); // ElevenLabs narration + captions for the 2025 replay
   const startDemo = () => { setDemoView(true); demo.start(); scrollTo({ top: 0, behavior: "smooth" }); };
@@ -233,7 +235,9 @@ export default function Dashboard({ acct, feed, reasoning, reload, voice, live =
         </div>
 
         <div className="card p-5">
-          <h2 className="font-semibold text-white">Your risk</h2>
+          <h2 className="font-semibold text-white">Your strategy</h2>
+          <div className="mt-3"><StrategyPicker value={(acct.strategy ?? "adaptive") as Strategy} onChange={setStrategy} /></div>
+          <h2 className="mt-5 font-semibold text-white">Your risk</h2>
           <div className="mt-5"><RiskSlider value={acct.profile as Profile} onChange={setProfile} /></div>
           <div className="mt-3"><LimitsTable profile={acct.profile as Profile} compact /></div>
           <button className="btn mt-4 w-full border-wire/40 text-wire hover:border-wire" disabled={!!busy} onClick={() => act("agent-loosen")} title="The AI asks for one +25% step of risk. Rust decides.">

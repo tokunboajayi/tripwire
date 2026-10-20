@@ -1,12 +1,14 @@
 //! Growth Ladder: capital is earned, not assumed. In live mode the broker trades at most `allowed` dollars, whatever
 //! BROKER_CAPITAL_USD says. `allowed` starts small (LADDER_START_USD) and can only be raised by the owner, at most 2×
-//! per 30 days, and only when the measured record passes every gate. A drawdown past the stop line halts buys.
+//! per 30 days, and only when the measured record passes every gate. A drawdown past the stop line halts buys;
+//! the drawdown gate clears again once equity makes a new high (backtest/ladder_sim.py showed a 10% line froze rungs for good).
 //! The projection uses the measured return (never a hoped-for one), plus the owner's monthly contribution.
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 
 pub const MAX_RAISE: f64 = 2.0;
-pub const STOP_DRAWDOWN: f64 = 0.10;
+/// 25%: v2 conservative's normal worst drop is ~17% and Trend Core's ~20–30%, so a tighter line just halts normal swings.
+pub const STOP_DRAWDOWN: f64 = 0.25;
 /// Backtest return used until there is enough live history: 2022–26 conservative, +17.5% over ~4.8 years.
 pub const BACKTEST_ANNUAL: f64 = 0.034;
 
@@ -56,6 +58,7 @@ impl Ladder {
         if self.start_equity.is_none() { self.start_equity = Some(equity); }
         let adj = equity - self.net_deposits; // deposits don't make a new peak
         let peak = self.peak_equity.unwrap_or(adj).max(adj);
+        if adj >= peak && self.peak_equity.is_some_and(|p| adj > p) { self.max_drawdown = 0.; } // recovered to a new high
         self.peak_equity = Some(peak);
         let dd = if peak > 0. { (peak - adj) / peak } else { 0. };
         let was = self.max_drawdown;
@@ -93,7 +96,7 @@ pub fn gates(l: &Ladder, equity: Option<f64>, drift: bool, now: i64) -> Vec<Gate
         g("Days since last raise", since_raise >= 30., if since_raise.is_finite() { format!("{since_raise:.0}") } else { "never".into() }, "≥ 30"),
         g("Broker fills", l.fills >= 10, l.fills.to_string(), "≥ 10"),
         g("Median slippage", l.median_slip().is_some_and(|s| s <= 15.), l.median_slip().map_or("—".into(), |s| format!("{s:.0} bps")), "≤ 15 bps"),
-        g("Worst drawdown", l.max_drawdown < STOP_DRAWDOWN, format!("{:.1}%", l.max_drawdown * 100.), "< 10%"),
+        g("Worst drawdown since last high", l.max_drawdown < STOP_DRAWDOWN, format!("{:.1}%", l.max_drawdown * 100.), "< 25%"),
         g("Return on this rung", ret.is_some_and(|r| r >= 0.), ret.map_or("—".into(), |r| format!("{:+.1}%", r * 100.)), "≥ 0%"),
         g("Daily-loss halts (14 days)", recent_halts == 0, recent_halts.to_string(), "0"),
         g("Ledger matches broker", !drift, if drift { "no".into() } else { "yes".into() }, "yes"),
@@ -174,9 +177,12 @@ mod tests {
     fn drawdown_trips_the_stop_once_and_deposits_are_not_profit() {
         let mut l = Ladder::new(500., 0);
         assert!(!l.on_equity(500.));
-        assert!(!l.on_equity(460.));      // -8%
-        assert!(l.on_equity(449.));       // -10.2%: crosses the line
-        assert!(!l.on_equity(440.));      // already crossed, no repeat
+        assert!(!l.on_equity(400.));      // -20%
+        assert!(l.on_equity(374.));       // -25.2%: crosses the line
+        assert!(!l.on_equity(370.));      // already crossed, no repeat
+        assert!(!l.on_equity(501.));      // new high: the drawdown gate clears
+        assert_eq!(l.max_drawdown, 0.);
+        assert!(l.on_equity(375.));       // and a fresh 25% drop trips it again
         let mut d = Ladder::new(500., 0);
         d.on_equity(500.); d.deposit(500.); d.on_equity(1000.);
         assert_eq!(d.rung_return(Some(1000.)), Some(0.));

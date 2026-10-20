@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { api, PROFILES, usd, type Profile } from "../lib/api";
+import { api, PROFILES, usd, type Profile, type Strategy } from "../lib/api";
 import { LimitsTable, RiskSlider } from "../components/RiskSlider";
+import { StrategyPicker } from "../components/StrategyPicker";
 import { Logo } from "../components/Logo";
 import { Icon } from "../components/Icons";
 
@@ -12,6 +13,7 @@ const STEPS = ["Risk", "Goal", "Fund"];
 export default function Onboard({ done, logout }: { done: () => void; logout: () => void }) {
   const [step, setStep] = useState(0);
   const [profile, setProfile] = useState<Profile>("balanced");
+  const [strategy, setStrategy] = useState<Strategy>("adaptive");
   const [goal, setGoal] = useState(5000);
   const [months, setMonths] = useState(12);
   const [cash, setCash] = useState(10000);
@@ -22,7 +24,7 @@ export default function Onboard({ done, logout }: { done: () => void; logout: ()
   const annual = cash > 0 ? Math.pow(1 + goal / cash, 12 / Math.max(1, months)) - 1 : 0;
   const submit = () => {
     setBusy(true); setError("");
-    api("/v1/accounts", "POST", { profile, goal_amount: goal, goal_months: months, start_cash: cash })
+    api("/v1/accounts", "POST", { profile, strategy, goal_amount: goal, goal_months: months, start_cash: cash })
       .then(done).catch((e) => setError(e.message)).finally(() => setBusy(false));
   };
 
@@ -52,6 +54,9 @@ export default function Onboard({ done, logout }: { done: () => void; logout: ()
               <p key={profile} className="rise mt-6 rounded-xl bg-ink-850 p-4 text-sm text-slate-300"><b className="text-white">{PROFILES[profile].label}.</b> {PROFILES[profile].blurb}</p>
               <div className="mt-4"><LimitsTable profile={profile} /></div>
               <p className="mt-4 flex items-center gap-2 text-sm text-wire"><Icon n="proof" size={16} />The AI can tighten these limits. It can never loosen them.</p>
+              <h2 className="mt-8 text-lg font-semibold text-white">Pick a strategy</h2>
+              <p className="mt-1 text-sm text-slate-400">You can switch any time on the dashboard.</p>
+              <div className="mt-3"><StrategyPicker value={strategy} onChange={setStrategy} /></div>
             </>
           )}
 

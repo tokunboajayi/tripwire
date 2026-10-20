@@ -1,4 +1,5 @@
 use crate::auth::{err, user_from_token, who, writer};
+use crate::brains::STRATEGIES;
 use crate::config::env_or;
 use crate::ledger::{close_pos, Account, SLIP};
 use crate::replay::{self, load_stocks};
@@ -16,18 +17,21 @@ use std::sync::Mutex;
 use serde_json::{json, Value};
 
 #[derive(Deserialize)]
-pub struct NewAcct { profile: String, goal_amount: Option<f64>, goal_months: Option<f64>, start_cash: Option<f64> }
+pub struct NewAcct { profile: String, goal_amount: Option<f64>, goal_months: Option<f64>, start_cash: Option<f64>, strategy: Option<String> }
 
-/// Onboarding: `{profile, goal_amount, goal_months, start_cash}`. One account per user.
+/// Onboarding: `{profile, goal_amount, goal_months, start_cash, strategy}`. One account per user.
 pub async fn create(State(app): State<S>, h: HeaderMap, Json(b): Json<NewAcct>) -> R {
     let u = writer(&app, &h).await?;
     if !PROFILES.contains(&b.profile.as_str()) { return Err(err(StatusCode::BAD_REQUEST, "profile")) }
+    let strategy = b.strategy.unwrap_or_else(|| "adaptive".into());
+    if !STRATEGIES.contains(&strategy.as_str()) { return Err(err(StatusCode::BAD_REQUEST, "strategy")) }
     let cash = b.start_cash.unwrap_or(10_000.).clamp(100., 1_000_000.);
     let goal = b.goal_amount.unwrap_or(cash * 0.1).clamp(1., 10_000_000.);
     let months = b.goal_months.unwrap_or(12.).clamp(1., 120.);
     {
         let mut w = app.w.lock().unwrap();
-        let a = Account::new(&u, &b.profile, cash, goal, months, &app.cfg.symbols, now());
+        let mut a = Account::new(&u, &b.profile, cash, goal, months, &app.cfg.symbols, now());
+        a.strategy = strategy;
         w.accounts.insert(u.clone(), a);
         w.emit(Some(&u), "account", format!("Account funded with ${cash:.0} (paper). Profile: {}. Goal: +${goal:.0} in {months:.0} months.", b.profile), json!({}));
     }
@@ -57,7 +61,7 @@ pub fn summary(w: &World, a: &Account, owner: bool) -> Value {
     let wins = a.trades.iter().filter(|t| t.pnl > 0.).count();
     let aw = avg(a.trades.iter().filter(|t| t.pnl > 0.).map(|t| t.ret));
     let al = -avg(a.trades.iter().filter(|t| t.pnl <= 0.).map(|t| t.ret));
-    json!({"user": a.user, "profile": a.profile, "status": a.status, "limits": a.limits, "start_cash": a.start_cash, "equity": eq,
+    json!({"user": a.user, "profile": a.profile, "strategy": a.strategy, "status": a.status, "limits": a.limits, "start_cash": a.start_cash, "equity": eq,
         "pnl_total": pnl, "pnl_today": eq - a.day_start_equity, "exposure": a.exposure(&px),
         "goal": {"amount": a.goal_amount, "months": a.goal_months, "progress": (pnl / a.goal_amount).max(0.), "created": a.created},
         "cash": a.sleeves.values().map(|s| s.cash).sum::<f64>(), "digest": a.digest, "kill_switch": w.kill,
@@ -88,6 +92,22 @@ pub async fn set_profile(State(app): State<S>, h: HeaderMap, Json(b): Json<Prof>
     w.emit(Some(&u), "limits", format!("Risk profile set to {}: risk {:.0}%/trade, max position {:.0}%, daily loss stop {:.0}%.",
         b.profile, lim.risk * 100., lim.maxpos * 100., lim.daily_loss * 100.), json!({"limits": lim, "profile": b.profile}));
     ok(json!({"limits": lim}))
+}
+
+#[derive(Deserialize)]
+pub struct Strat { strategy: String }
+
+/// Strategy switch. Open positions keep their own exit rules; new entries follow the new strategy.
+pub async fn set_strategy(State(app): State<S>, h: HeaderMap, Json(b): Json<Strat>) -> R {
+    let u = writer(&app, &h).await?;
+    if !STRATEGIES.contains(&b.strategy.as_str()) { return Err(err(StatusCode::BAD_REQUEST, "strategy")) }
+    let mut w = app.w.lock().unwrap();
+    let a = w.accounts.get_mut(&u).ok_or(err(StatusCode::NOT_FOUND, "no account"))?;
+    a.strategy = b.strategy.clone();
+    let msg = if b.strategy == "trend_core" { "Strategy set to Trend Core: hold each coin while it's above its 100-day average, cash otherwise." }
+        else { "Strategy set to Adaptive: the AI picks a brain for each market regime." };
+    w.emit(Some(&u), "limits", msg.into(), json!({"strategy": b.strategy}));
+    ok(json!({"strategy": b.strategy}))
 }
 
 pub async fn positions(State(app): State<S>, h: HeaderMap) -> R {
@@ -190,18 +210,20 @@ pub async fn kill_all(State(app): State<S>, h: HeaderMap) -> R {
 }
 
 #[derive(Deserialize)]
-pub struct ReplayReq { speed: Option<f64>, from: Option<String>, dataset: Option<String> }
+pub struct ReplayReq { speed: Option<f64>, from: Option<String>, dataset: Option<String>, strategy: Option<String> }
 
-/// Start a replay `{dataset: crypto|stocks, speed, from}`. One per user at a time.
+/// Start a replay `{dataset: crypto|stocks, speed, from, strategy}` (strategy defaults to the account's). One per user at a time.
 pub async fn start_replay(State(app): State<S>, h: HeaderMap, Json(b): Json<ReplayReq>) -> R {
     let u = writer(&app, &h).await?;
     let from = chrono::NaiveDate::parse_from_str(b.from.as_deref().unwrap_or("2025-01-01"), "%Y-%m-%d")
         .map_err(|_| err(StatusCode::BAD_REQUEST, "from"))?.and_hms_opt(0, 0, 0).unwrap().and_utc().timestamp();
     let speed = b.speed.unwrap_or(20.).clamp(1., 200.);
-    let (lim, data, gen) = {
+    if b.strategy.as_deref().is_some_and(|s| !STRATEGIES.contains(&s)) { return Err(err(StatusCode::BAD_REQUEST, "strategy")) }
+    let (lim, strategy, data, gen) = {
         let mut w = app.w.lock().unwrap();
         if replay::running(w.replays.get(&u)) { return Err(err(StatusCode::CONFLICT, "replay running")) }
         let lim = w.accounts.get(&u).map(|a| a.limits).unwrap_or(Limits::profile("balanced"));
+        let strategy = b.strategy.clone().or_else(|| w.accounts.get(&u).map(|a| a.strategy.clone())).unwrap_or_else(|| "adaptive".into());
         let data = if b.dataset.as_deref() == Some("stocks") {
             load_stocks(&app.cfg.data_dir).ok_or(err(StatusCode::NOT_FOUND, "no stock data: run data/fetch_stocks.py"))?
         } else {
@@ -209,10 +231,10 @@ pub async fn start_replay(State(app): State<S>, h: HeaderMap, Json(b): Json<Repl
         };
         let gen = w.replays.get(&u).map_or(0, |r| r.gen) + 1;
         w.replays.insert(u.clone(), Replay { status: "running".into(), gen, ..Default::default() });
-        (lim, data, gen)
+        (lim, strategy, data, gen)
     };
-    replay::spawn(app.clone(), u, data, lim, from, speed, gen);
-    ok(json!({"status": "running", "speed": speed, "gen": gen}))
+    replay::spawn(app.clone(), u, data, lim, strategy.clone(), from, speed, gen);
+    ok(json!({"status": "running", "speed": speed, "gen": gen, "strategy": strategy}))
 }
 
 /// Stop the caller's running replay (the loop exits on its next day).

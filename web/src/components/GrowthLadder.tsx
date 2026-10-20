@@ -34,7 +34,7 @@ export function GrowthLadder() {
       </div>
       <p className="mt-2 text-sm text-slate-400">
         {s.enforced ? <>Live trading is capped at <b className="text-white">{usd(s.allowed, 0)}</b> (of {usd(s.capital_ceiling, 0)} configured). </> : <>Paper isn't capped; this measures the record you'll need to go live. </>}
-        Capital is raised at most 2× per 30 days, only when every check passes. A 10% drop from the peak halts buys.
+        Capital is raised at most 2× per 30 days, only when every check passes. A 25% drop from the peak halts buys.
       </p>
       {msg && <p role="status" className="mt-2 text-sm text-amber-300">{msg}</p>}
 

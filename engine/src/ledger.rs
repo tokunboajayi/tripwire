@@ -37,7 +37,11 @@ pub struct Account {
     pub events: VecDeque<Ev>, pub order_times: VecDeque<i64>, pub day: i64, pub day_start_equity: f64, pub mcp_token: String,
     pub digest: Option<String>,
     #[serde(default)] pub last_block: HashMap<String, (String, i64)>,
+    /// "adaptive" (regime-routed brains) or "trend_core" (hold above the 100-day average).
+    #[serde(default = "adaptive")] pub strategy: String,
 }
+
+fn adaptive() -> String { "adaptive".into() }
 
 impl Account {
     pub fn new(user: &str, profile: &str, cash: f64, goal: f64, months: f64, syms: &[String], now: i64) -> Self {
@@ -48,7 +52,7 @@ impl Account {
             sleeves: syms.iter().map(|s| (s.clone(), Sleeve { cash: per, ..Default::default() })).collect(),
             trades: vec![], equity: vec![(now, cash)], events: VecDeque::new(), order_times: VecDeque::new(), day: now / 86400,
             day_start_equity: cash, mcp_token: format!("vt_mcp_{}", uuid::Uuid::new_v4().simple()), digest: None,
-            last_block: HashMap::new(),
+            last_block: HashMap::new(), strategy: adaptive(),
         }
     }
 

@@ -65,3 +65,17 @@ The v2 equity curves run through the same rules as `engine/src/ladder.rs`: start
 
 **Finding:** the ladder is too tight for this strategy. Normal v2 drawdown is 17%, so the 10% stop keeps firing, and a rung that has hit 10% can never be raised again. Over four years almost all deposits sat in cash. Fix candidates: base the stop on the backtested drawdown (about 20% for conservative), and reset the rung's drawdown once equity makes a new high.
 Prediction-market arbitrage isn't backtested: there are no historical Kalshi/Polymarket order books here. Its evidence has to come from the Phase 1b paper run.
+
+## Strategy search + Trend Core (Oct 2026)
+`python backtest/strategy_search.py`: 11 standard rules chosen before running, all reported (BTC, Aug 2022 → Oct 2026, 0.3%/side costs). Simple trend filters beat the 3-brain mix by 3–4×. Leverage (2×) had the best total but the worst stretch since 2025 (−28%), so it was rejected.
+
+`python backtest/trend_core.py` is the exact rule that now ships as the **Trend Core** strategy: hold above SMA100 × 1.01, sell below SMA100 × 0.99 or on a 5-ATR stop, position = the profile's max position. BTC, Jan 2022 → Oct 2026:
+
+| | Return | Worst drop | 2025–26 |
+|---|---|---|---|
+| Trend Core, conservative | +77.6% | −20.1% | +6.4% |
+| Trend Core, balanced | +115.5% | −25.9% | +9.0% |
+| Trend Core, aggressive | +150.0% | −30.5% | +11.2% |
+| Buy & hold BTC | +73.0% | −66.9% | −12.7% |
+
+Caveats: BTC only (ETH/SOL need `fetch.py`, which can't reach Binance from CI sandboxes); 16 trades in 4.7 years, so the sample is small. It's sensitive to the band: 0% gives +119%, 2% gives +251% (aggressive). We ship 1%, chosen before testing, not the best-looking value. Each strategy's first 100 days of 2022 are in cash while the average warms up.

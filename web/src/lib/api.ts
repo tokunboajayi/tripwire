@@ -50,7 +50,7 @@ export const PROFILES: Record<Profile, { label: string; blurb: string; risk: num
 };
 
 export type Regime = "RANGE" | "TREND_UP" | "HIGH_VOL" | "TREND_DOWN";
-export type Brain = "MR" | "TREND" | "BREAKOUT" | "SHIELD";
+export type Brain = "MR" | "TREND" | "BREAKOUT" | "SHIELD" | "CORE";
 export const REGIMES: Record<Regime, { label: string; color: string; brain: Brain }> = {
   RANGE: { label: "Calm", color: "#60A5FA", brain: "MR" },
   TREND_UP: { label: "Trending up", color: "#34D399", brain: "TREND" },
@@ -62,6 +62,16 @@ export const BRAINS: Record<Brain, { label: string; does: string; glyph: "mr" | 
   TREND: { label: "Trend", does: "Rides the move, sized by volatility", glyph: "trend" },
   BREAKOUT: { label: "Breakout", does: "Buys confirmed breakouts, tight trailing stop", glyph: "breakout" },
   SHIELD: { label: "Shield", does: "Holds cash until the market turns", glyph: "shield" },
+  CORE: { label: "Trend Core", does: "Holds while price is above its 100-day average", glyph: "trend" },
+};
+
+/** Strategies (engine/src/brains.rs STRATEGIES). Numbers: backtest/trend_core.py and docs/02_BACKTEST.md, fees included. */
+export type Strategy = "adaptive" | "trend_core";
+export const STRATEGIES: Record<Strategy, { label: string; blurb: string; proof: string }> = {
+  adaptive: { label: "Adaptive", blurb: "The AI picks one of 3 brains for each market regime. Small, careful trades.",
+    proof: "Backtest 2022–26: +17.5% (conservative), worst drop −17%. 3 coins." },
+  trend_core: { label: "Trend Core", blurb: "One rule: hold each coin while it's above its 100-day average, cash otherwise. Few trades, rides big moves.",
+    proof: "Backtest 2022–26 (BTC): +78% conservative / +150% aggressive vs +73% holding; worst drop −20% / −31%." },
 };
 
 // ---------- formatting ----------

@@ -1,6 +1,6 @@
 //! Replay mode (spec §7): the same brains on historical daily bars, streamed at N days/second.
 //! Signal on close of bar i, fill at open of bar i+1 — no look-ahead (v2 backtest semantics).
-use crate::brains::{entry_signal, entry_text, exit_check, size};
+use crate::brains::{entry_for, entry_text, exit_check, size};
 use crate::indicators::{compute_ann, Candle, Inds};
 use crate::ledger::{close_pos, Position, Sleeve, Trade, FEE, SLIP};
 use crate::regime::{regime, Regime};
@@ -15,7 +15,7 @@ pub const REPLAY_CASH: f64 = 10_000.;
 
 pub type Dataset = Vec<(String, Vec<Candle>, Inds)>;
 
-pub fn step(sym: &str, sl: &mut Sleeve, cs: &[Candle], ind: &Inds, i: usize, lim: &Limits, trades: &mut Vec<Trade>) -> Option<(String, Value)> {
+pub fn step(sym: &str, sl: &mut Sleeve, cs: &[Candle], ind: &Inds, i: usize, lim: &Limits, strategy: &str, trades: &mut Vec<Trade>) -> Option<(String, Value)> {
     let (b, nx) = (cs[i], cs[i + 1]);
     let r = ind.row(i);
     if !r.ready() { return None }
@@ -28,7 +28,7 @@ pub fn step(sym: &str, sl: &mut Sleeve, cs: &[Candle], ind: &Inds, i: usize, lim
     }
     if sl.pos.is_none() {
         let reg = regime(b.c, &r);
-        if let Some((brain, k)) = entry_signal(reg, b.c, b.v, &r) {
+        if let Some((brain, k)) = entry_for(strategy, reg, b.c, b.v, &r) {
             let px = nx.o * (1. + SLIP);
             let q = size(brain, sl.cash, px, &r, lim, 1.);
             if q > 0. {
@@ -51,7 +51,7 @@ pub fn load_stocks(dir: &str) -> Option<Dataset> {
 }
 
 /// Run a replay for `user` in the background, emitting `replay_*` events on the user's stream.
-pub fn spawn(app: S, user: String, data: Dataset, lim: Limits, from: i64, speed: f64, gen: u64) {
+pub fn spawn(app: S, user: String, data: Dataset, lim: Limits, strategy: String, from: i64, speed: f64, gen: u64) {
     tokio::spawn(async move {
         let rid = format!("replay:{user}");
         let per = REPLAY_CASH / data.len() as f64;
@@ -72,7 +72,7 @@ pub fn spawn(app: S, user: String, data: Dataset, lim: Limits, from: i64, speed:
             for (k, (s, cs, ind)) in data.iter().enumerate() {
                 let i = start[k] + d;
                 let c = cs[i + 1];
-                if let Some((m, mut dta)) = step(s, &mut sleeves[k], cs, ind, i, &lim, &mut trades) {
+                if let Some((m, mut dta)) = step(s, &mut sleeves[k], cs, ind, i, &lim, &strategy, &mut trades) {
                     dta["t"] = json!(c.t);
                     dta["gen"] = json!(gen);
                     evs.push((m, dta));
