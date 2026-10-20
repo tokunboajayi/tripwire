@@ -75,6 +75,7 @@ pub fn router(app: S) -> Router {
         .route("/v1/accounts", post(account::create))
         .route("/v1/accounts/me", get(account::me))
         .route("/v1/accounts/me/profile", patch(account::set_profile))
+        .route("/v1/accounts/me/strategy", patch(account::set_strategy))
         .route("/v1/accounts/me/positions", get(account::positions))
         .route("/v1/accounts/me/trades", get(account::trades))
         .route("/v1/accounts/me/equity", get(account::equity))

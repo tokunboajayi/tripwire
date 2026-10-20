@@ -24,7 +24,7 @@
 | Volatile | Breakout | buys confirmed breakouts, tight trailing stop |
 | Falling | Shield | holds cash until the market turns |
 
-**The AI (Claude) picks the brain. Rust checks every order.**
+**The AI (Claude) picks the brain. Rust checks every order.** Or choose **Trend Core**: one rule, hold each coin above its 100-day average. Backtest 2022–26 (BTC): +78% conservative to +150% aggressive vs +73% holding, with a third to half the worst drop.
 - **Hard limits:** your risk per trade, max exposure and daily-loss pause line are enforced in Rust. Any order outside them is blocked with a reason code.
 - **Earned risk:** the AI can always tighten your limits. It can only ask to raise them back toward the ceiling *you* set, and only after it has earned it: 3+ trades in 30 days, 55%+ wins, not losing today, and at most +25% per step. Otherwise Rust answers `RISK_NOT_EARNED`, `RISK_STEP_TOO_BIG` or `LIMIT_LOOSEN_DENIED`.
 - **Explains itself:** every trade, brain switch and blocked order comes with a one-line reason, in text and (optionally) spoken by ElevenLabs.

@@ -8,7 +8,7 @@ pub enum Regime { Range, TrendUp, HighVol, TrendDown }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-pub enum Brain { Mr, Trend, Breakout, Shield }
+pub enum Brain { Mr, Trend, Breakout, Shield, Core }
 
 impl Regime {
     /// The router: one brain per regime.
@@ -22,7 +22,7 @@ impl Regime {
 
 impl Brain {
     pub fn label(self) -> &'static str {
-        match self { Brain::Mr => "Mean-Reversion", Brain::Trend => "Trend", Brain::Breakout => "Breakout", Brain::Shield => "Shield" }
+        match self { Brain::Mr => "Mean-Reversion", Brain::Trend => "Trend", Brain::Breakout => "Breakout", Brain::Shield => "Shield", Brain::Core => "Trend Core" }
     }
 }
 

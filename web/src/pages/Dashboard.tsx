@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNarration } from "../lib/narrator";
 import { Caption } from "../components/Caption";
-import { api, BRAINS, onSpeaking, pct, PROFILES, REGIMES, signedPct, signedUsd, speak, stopSpeaking, usd, type Brain, type Ev, type Live, type Profile, type Regime } from "../lib/api";
+import { api, BRAINS, onSpeaking, pct, PROFILES, REGIMES, signedPct, signedUsd, speak, stopSpeaking, usd, type Brain, type Ev, type Live, type Profile, type Regime, type Strategy } from "../lib/api";
 import { EquityChart, Lines, RegimeChart, type Candle, type Marker } from "../components/Charts";
 import { LimitsTable, RiskSlider } from "../components/RiskSlider";
+import { StrategyPicker } from "../components/StrategyPicker";
 import { WhyLog } from "../components/WhyLog";
 import { BrainBadge, Empty } from "../components/ui";
 import { Icon } from "../components/Icons";
@@ -50,6 +51,7 @@ export default function Dashboard({ acct, feed, reasoning, reload, voice, live =
     setBusy(x);
     api(`/v1/accounts/me/${x}`, "POST").then(reload).catch((e) => alert(e.message)).finally(() => setBusy(""));
   };
+  const setStrategy = (st: Strategy) => { if (st !== acct.strategy) api("/v1/accounts/me/strategy", "PATCH", { strategy: st }).then(reload).catch((e) => alert(e.message)); };
   const setProfile = (p: Profile) => { if (p !== acct.profile) api("/v1/accounts/me/profile", "PATCH", { profile: p }).then(reload).catch((e) => alert(e.message)); };
   const narr = useNarration(demo, sym, voice); // ElevenLabs narration + captions for the 2025 replay
   const startDemo = () => { setDemoView(true); demo.start(); scrollTo({ top: 0, behavior: "smooth" }); };
@@ -60,6 +62,9 @@ export default function Dashboard({ acct, feed, reasoning, reload, voice, live =
   const inDemo = demoView && (demo.running || demo.ticks.length > 0);
   const sel = markets.find((m) => m.symbol === sym);
   const activeRegime: Regime | undefined = inDemo ? (tick?.regimes?.[sym]?.regime as Regime | undefined) : sel?.regime;
+  // Trend Core ignores the regime: the regime stays on screen as context, the brain shown is the one actually trading.
+  const core = acct?.strategy === "trend_core";
+  const activeBrain: Brain | undefined = activeRegime ? (core ? "CORE" : REGIMES[activeRegime].brain) : undefined;
 
   // base stays referentially stable for the whole replay (a new array would rebuild the chart every tick);
   // only the stream grows as replay days arrive
@@ -123,13 +128,14 @@ export default function Dashboard({ acct, feed, reasoning, reload, voice, live =
               <>
                 <div key={activeRegime} className="rise mt-1 flex items-center gap-3 text-4xl font-bold tracking-tight sm:text-5xl" style={{ color: REGIMES[activeRegime].color, textShadow: `0 0 28px ${REGIMES[activeRegime].color}55` }}>
                   <span className="grid h-12 w-12 shrink-0 place-items-center rounded-md border sm:h-14 sm:w-14" style={{ borderColor: REGIMES[activeRegime].color + "66", background: REGIMES[activeRegime].color + "14" }}>
-                    <Icon n={BRAINS[REGIMES[activeRegime].brain].glyph} size={30} />
+                    <Icon n={BRAINS[activeBrain!].glyph} size={30} />
                   </span>
-                  {BRAINS[REGIMES[activeRegime].brain].label}
+                  {BRAINS[activeBrain!].label}
                 </div>
                 <p className="mt-2 text-sm text-slate-300">
-                  <b className="text-white">{REGIMES[activeRegime].label}</b> market · {BRAINS[REGIMES[activeRegime].brain].does.toLowerCase()}.
-                  {!inDemo && sel && <span className="text-slate-400"> {sel.source === "ai" ? `Regime Agent agrees (${pct(sel.confidence)} confident).` : sel.source === "override_rejected" ? "AI overruled by Rust (REGIME_MISMATCH)." : "Rule-based call."}</span>}
+                  <b className="text-white">{REGIMES[activeRegime].label}</b> market · {BRAINS[activeBrain!].does.toLowerCase()}.
+                  {core && <span className="text-slate-400"> Your strategy is Trend Core, so the regime doesn't change what it does.</span>}
+                  {!inDemo && sel && !core && <span className="text-slate-400"> {sel.source === "ai" ? `Regime Agent agrees (${pct(sel.confidence)} confident).` : sel.source === "override_rejected" ? "AI overruled by Rust (REGIME_MISMATCH)." : "Rule-based call."}</span>}
                 </p>
               </>
             ) : <div className="mt-1 text-4xl font-extrabold text-slate-400">…</div>}
@@ -218,10 +224,11 @@ export default function Dashboard({ acct, feed, reasoning, reload, voice, live =
       <section className="grid gap-5 lg:grid-cols-3">
         <div className="card flex flex-col p-5">
           <div className="flex items-center justify-between">
-            <h2 className="font-semibold text-white">Why this brain</h2>
+            <h2 className="font-semibold text-white">{core ? "Market regime (context)" : "Why this brain"}</h2>
             <span className="inline-flex items-center gap-1.5 text-xs text-violet-300"><span className="h-1.5 w-1.5 motion-safe:animate-pulse rounded-full bg-violet-400" />Regime Agent</span>
           </div>
           {activeRegime && <div className="mt-3"><BrainBadge regime={activeRegime} /></div>}
+          {core && <p className="mt-3 text-sm text-slate-300">Trend Core is trading: it holds while the price is above its 100-day average, whatever the regime. The AI's regime call below is shown for context only.</p>}
           {!inDemo && sel?.source === "ai" && sel.ai_reason && <p className="mt-3 rounded-lg bg-violet-400/10 p-3 text-sm text-violet-100">“{sel.ai_reason}”</p>}
           {!inDemo && sel?.source === "override_rejected" && <p className="mt-3 text-sm text-down">The AI's call contradicted the data, so Rust kept its own regime (REGIME_MISMATCH).</p>}
           <div className="mt-3 flex-1">
@@ -233,7 +240,9 @@ export default function Dashboard({ acct, feed, reasoning, reload, voice, live =
         </div>
 
         <div className="card p-5">
-          <h2 className="font-semibold text-white">Your risk</h2>
+          <h2 className="font-semibold text-white">Your strategy</h2>
+          <div className="mt-3"><StrategyPicker value={(acct.strategy ?? "adaptive") as Strategy} onChange={setStrategy} /></div>
+          <h2 className="mt-5 font-semibold text-white">Your risk</h2>
           <div className="mt-5"><RiskSlider value={acct.profile as Profile} onChange={setProfile} /></div>
           <div className="mt-3"><LimitsTable profile={acct.profile as Profile} compact /></div>
           <button className="btn mt-4 w-full border-wire/40 text-wire hover:border-wire" disabled={!!busy} onClick={() => act("agent-loosen")} title="The AI asks for one +25% step of risk. Rust decides.">

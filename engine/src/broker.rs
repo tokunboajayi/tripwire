@@ -304,7 +304,7 @@ pub async fn sync(app: &S) {
         w.emit(u.as_deref(), "mirror", format!("{}: ledger and broker disagree: {}.", label(mode), drift.join("; ")), json!({"ok": false, "code": "LIVE_DRIFT", "mode": mode}));
     }
     if ladder_stop {
-        w.emit(u.as_deref(), "mirror", "Growth Ladder stop: down 10% from the peak on this rung. Buys halted. Review before resuming; the roadmap says go back to paper.".into(),
+        w.emit(u.as_deref(), "mirror", "Growth Ladder stop: down 25% from the peak. Buys halted. Review before resuming; the roadmap says go back to paper.".into(),
             json!({"ok": false, "code": "LADDER_STOP", "mode": mode}));
     }
     save(&app.cfg.data_dir, &w.live);

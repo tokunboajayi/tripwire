@@ -55,6 +55,11 @@ check("slider -> conservative tightens limits", r["limits"]["risk"] == 0.01 and 
 r = c.patch("/v1/accounts/me/profile", headers=D, json={"profile": "aggressive"}).json()
 check("slider -> aggressive (user may loosen)", r["limits"]["risk"] == 0.03, r)
 c.patch("/v1/accounts/me/profile", headers=D, json={"profile": "balanced"})
+check("strategy defaults to adaptive", a.get("strategy") == "adaptive", a.get("strategy"))
+check("bad strategy rejected", c.patch("/v1/accounts/me/strategy", headers=D, json={"strategy": "yolo"}).status_code == 400)
+r = c.patch("/v1/accounts/me/strategy", headers=D, json={"strategy": "trend_core"})
+check("switch to Trend Core", r.status_code == 200 and c.get("/v1/accounts/me", headers=D).json()["strategy"] == "trend_core", r.text)
+c.patch("/v1/accounts/me/strategy", headers=D, json={"strategy": "adaptive"})
 
 # --- data endpoints ---
 check("positions endpoint", c.get("/v1/accounts/me/positions", headers=D).json() == [])

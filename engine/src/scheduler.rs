@@ -1,6 +1,6 @@
-//! Engine loop (spec §4): prices refresh every PRICE_EVERY_S (default 10s) and stream to the dashboard;
-//! every 60s re-classify, manage exits/entries through the risk gate, mark to market.
-use crate::brains::{entry_signal, entry_text, exit_check, size};
+//! Engine loop (spec §4): prices refresh every PRICE_EVERY_S (default 10s) and stream to the dashboard.
+//! Stops and exits are checked on every refresh (fast exits); every 60s also re-classify and take entries through the risk gate.
+use crate::brains::{entry_for, entry_text, exit_check, size};
 use crate::indicators::compute;
 use crate::ledger::{close_pos, Position, FEE, SLIP};
 use crate::regime::{accept_ai, regime};
@@ -25,19 +25,20 @@ pub fn spawn(app: S) {
         let mut last_trade = 0i64; // not i64::MIN: `now() - i64::MIN` overflows (wraps in release, so the tick never fired)
         loop {
             market::refresh(&app).await;
-            if now() - last_trade >= TRADE_EVERY_S {
-                last_trade = now();
-                trade_once(&app).await;
-            }
+            let full = now() - last_trade >= TRADE_EVERY_S;
+            if full { last_trade = now(); }
+            trade_once(&app, full).await;
             tokio::time::sleep(Duration::from_secs(app.cfg.price_every_s)).await;
         }
     });
 }
 
-async fn trade_once(app: &S) {
+/// `full`: regimes + exits + entries. Otherwise exits only, and state is saved only when something closed.
+async fn trade_once(app: &S, full: bool) {
     let (accounts, audit, mirror) = {
         let mut w = app.w.lock().unwrap();
-        tick(&mut w, now());
+        let exits = tick_mode(&mut w, now(), full);
+        if !full && exits == 0 { return }
         (serde_json::to_string(&w.accounts).ok(), serde_json::to_string(&(&w.audit, &w.anchors)).ok(), std::mem::take(&mut w.mirror_queue))
     };
     let mirror_empty = mirror.is_empty();
@@ -45,14 +46,20 @@ async fn trade_once(app: &S) {
     let _ = std::fs::create_dir_all(dir);
     if let Some(a) = audit { let _ = std::fs::write(format!("{dir}/audit.json"), a); }
     if let Some(s) = accounts { let _ = std::fs::write(format!("{dir}/state.json"), s); }
-    broker::sync(app).await; // fresh equity, cash and halts before any buy is checked
+    if full || !mirror_empty { broker::sync(app).await; } // fresh equity, cash and halts before any buy is checked
     broker::run(app, mirror).await;
     if !mirror_empty { broker::sync(app).await; }
 }
 
 /// One live tick: regimes, exits, entries, risk gate, marks, daily-loss guard. Pure over `World` + clock.
-pub fn tick(w: &mut World, now: i64) {
+#[cfg(test)]
+pub fn tick(w: &mut World, now: i64) { tick_mode(w, now, true); }
+
+/// `full = false` is the fast path between ticks: stops and exits on the latest price, nothing else. Returns exits taken.
+pub fn tick_mode(w: &mut World, now: i64, full: bool) -> usize {
     let mut out: Vec<(Option<String>, &str, String, Value)> = vec![];
+    let mut exits = 0;
+    if full {
 
     // 1–4: indicators, deterministic regime, AI acceptance
     for (sym, m) in w.markets.iter_mut() {
@@ -74,6 +81,7 @@ pub fn tick(w: &mut World, now: i64) {
                 json!({"symbol": sym, "from": m.fin, "to": fin, "brain": fin.brain(), "source": src})));
         }
         m.det = det; m.fin = fin; m.source = src.into(); m.conf = conf;
+    }
     }
 
     let px = w.prices();
@@ -108,13 +116,15 @@ pub fn tick(w: &mut World, now: i64) {
                         if w.mirror_user.as_deref() == Some(uid.as_str()) { w.mirror_queue.push(broker::Order::new(&sym, "sell", q * price, a.start_cash, price)); }
                         let (msg, data) = close_pos(&sym, sl, price * (1. - SLIP), why, now, &mut a.trades);
                         out.push((Some(uid.clone()), "order", msg, data));
+                        exits += 1;
                     }
                 }
                 continue;
             }
+            if !full { continue }
 
             // 5: entries for the routed brain
-            let Some((brain, k)) = entry_signal(m.fin, price, v, &r) else { continue };
+            let Some((brain, k)) = entry_for(&a.strategy, m.fin, price, v, &r) else { continue };
             if now - sl.last_exit < REENTRY_COOLDOWN_S { continue }
             let fill = price * (1. + SLIP);
             let q = size(brain, sl.cash, fill, &r, &a.limits, m.conf);
@@ -162,6 +172,7 @@ pub fn tick(w: &mut World, now: i64) {
         }
     }
     for (acct, kind, msg, data) in out { w.emit(acct.as_deref(), kind, msg, data); }
+    exits
 }
 
 #[cfg(test)]
@@ -211,6 +222,22 @@ mod tests {
         let m = &w.markets["BTC"];
         assert_eq!(m.source, "override_rejected");
         assert_eq!(m.fin, m.det);
+    }
+
+    /// Fast path: a stop is taken between full ticks, and no entry is ever opened there.
+    #[test]
+    fn fast_path_exits_but_never_enters() {
+        let mut w = world_with_market(None);
+        let now = w.markets["BTC"].updated;
+        assert_eq!(tick_mode(&mut w, now, false), 0);
+        assert!(w.accounts["u"].sleeves["BTC"].pos.is_none(), "fast path must not enter");
+        w.accounts.get_mut("u").unwrap().strategy = "trend_core".into();
+        tick(&mut w, now);
+        let stop = w.accounts["u"].sleeves["BTC"].pos.as_ref().expect("trend core enters in an uptrend").stop;
+        w.markets.get_mut("BTC").unwrap().price = stop - 1.;
+        assert_eq!(tick_mode(&mut w, now + 10, false), 1);
+        assert!(w.accounts["u"].sleeves["BTC"].pos.is_none());
+        assert_eq!(w.accounts["u"].trades.last().unwrap().reason, "stop");
     }
 
     /// Acceptance 5: the kill switch blocks every new order within one tick.

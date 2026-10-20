@@ -15,6 +15,9 @@
 | ✅ | **Prediction-market arbitrage** (`engine/src/pm/`): Kalshi + Polymarket, its own fast loop (default every 2 s). Buys both sides of the same event when the total is under the $1 payout after fees (cross-venue pairs, and outcome groups on one venue). It only trades pairs you have verified, works within a per-set cap, an exposure cap, a rate limit and a cooldown, settles automatically from Kalshi, and its events go into the audit chain. Live mode covers Kalshi legs only: orders are signed fill-or-kill, and a failed leg halts everything. |
 | ✅ | **Capital allocator:** scores each venue (crypto, Kalshi, Polymarket) by profit made plus profit missed for lack of cash, then suggests transfers. It never moves money between brokers itself. |
 | ✅ | **Growth Ladder** (`engine/src/ladder.rs`, Settings → Growth Ladder): live capital is capped at what you have earned. It starts at `LADDER_START_USD` (default $200) and goes up only by an owner raise, at most 2× per 30 days, and only when all 8 checks pass: days on the rung, days since the last raise, fills, median slippage, drawdown, return, no daily-loss halts, ledger matching the broker. A 10% drop from the peak halts buys. Projections use the measured return plus your monthly contribution, and deposits don't count as profit. |
+| ✅ | **Trend Core strategy** (`brains.rs`, picker on the dashboard and in onboarding): hold each coin above its 100-day average, cash otherwise. Backtest: `docs/02_BACKTEST.md`. Replays use the account's strategy. |
+| ✅ | **Fast exits:** stops and exits are checked on every price refresh (every 10 s) instead of every 60 s. Entries stay on the 60 s tick. |
+| ✅ | **Ladder stop at 25%** (was 10%), and the drawdown check clears at a new high. The 10% line froze rungs for good in `backtest/ladder_sim.py`. |
 | ✅ | **Bug fixed:** the 60-second trading tick never fired in release builds (`now() - i64::MIN` overflowed and wrapped). Paper accounts on the live site had not been trading. Covered by `tests/live_broker.py`. |
 
 ## Phase 1: Paper rehearsal (2–4 weeks, starting now)
@@ -84,7 +87,7 @@ LIVE_CONFIRM=real-money
 
 Order of priority. Each item ships with a test:
 1. **Broker-side stop orders.** Today stops live in the engine, so if the server is down, nothing exits. Place a protective stop at Alpaca with every buy and cancel it on exit. **This is the most important item before you scale past micro.**
-2. **Exits on every price refresh** (every 10 seconds instead of every 60) for stops only. Entries stay on the daily logic.
+2. ~~Exits on every price refresh~~ Done: exits are checked every 10 s.
 3. **Alerts:** a push or SMS on every live fill, halt and drift.
 4. **Real-money state on the dashboard** next to the paper account, with live P&L vs paper vs BTC.
 5. **Startup reconciliation:** on boot, compare broker positions with the ledger and halt if they differ.
